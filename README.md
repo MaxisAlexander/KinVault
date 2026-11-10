@@ -273,13 +273,20 @@ docker build -t kinvault .
 docker run --rm -p 3000:3000 --env-file .env.production kinvault
 ```
 
-**Vercel / Netlify / Render:** build command `bun run build`, start command
-`node .output/server/index.mjs`, and set the environment variables from the
-table above. `SUPABASE_SERVICE_ROLE_KEY` must be present in the server
-environment or verified ledger writes fail.
+**Vercel:** the repo includes `vercel.json`; Nitro's Vercel preset writes
+`.vercel/output`. Build command `bun run build`, install command
+`bun install --frozen-lockfile`.
+
+**Netlify / Render:** build command `bun run build`, start command
+`node .output/server/index.mjs`.
+
+Set the environment variables from the table above in the host. `VITE_*`
+variables are inlined at build time; `SUPABASE_SERVICE_ROLE_KEY` is read at
+runtime and must never be exposed to the browser.
 
 Apply the Drizzle migrations in `drizzle/migrations/` to the production Supabase
-project before the first live transaction.
+project before the first live transaction, and add the deployed origin to
+Supabase Auth → URL Configuration so sign-in redirects work.
 
 ---
 

@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1793966793913,
+      "tag": "0000_family_vault",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794202469076,
+      "tag": "0001_wallet_login_nonces",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794300000000,
+      "tag": "0002_onchain_transactions",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794400000000,
+      "tag": "0003_withdrawals",
+      "breakpoints": true
+    }
+  ]
+}

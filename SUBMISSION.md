@@ -5,12 +5,12 @@ November 23.
 
 ## Hard requirements
 
-| Item                     | Status                           | Where                           |
-| ------------------------ | -------------------------------- | ------------------------------- |
-| Live deployment link     | **TODO — add before submitting** | `README.md` → Live deployment   |
-| Public GitHub repository | **TODO — initialise and push**   | This directory                  |
-| Pitch deck               | **TODO**                         | Add `deck.pdf` or a hosted link |
-| 2-minute demo video      | **TODO**                         | Add the video URL               |
+| Item                     | Status                                                | Where                           |
+| ------------------------ | ----------------------------------------------------- | ------------------------------- |
+| Live deployment link     | **TODO — add before submitting**                      | `README.md` → Live deployment   |
+| Public GitHub repository | **DONE** — https://github.com/MaxisAlexander/KinVault | `main` branch                   |
+| Pitch deck               | **TODO**                                              | Add `deck.pdf` or a hosted link |
+| 2-minute demo video      | **TODO**                                              | Add the video URL               |
 
 ## Rubric mapping
 
@@ -99,8 +99,9 @@ Screenshots ready to drop into the deck:
 ## Pre-submit checklist
 
 - [ ] Deploy the app and add the URL to `README.md`.
-- [ ] Create a public GitHub repository and push this directory.
-- [ ] Confirm `.env` is not committed and `.env.example` is.
+- [x] Create a public GitHub repository and push this directory —
+      https://github.com/MaxisAlexander/KinVault
+- [x] Confirm `.env` is not committed and `.env.example` is.
 - [ ] Apply all four Drizzle migrations to the production Supabase project.
 - [ ] Set `SUPABASE_SERVICE_ROLE_KEY` in the deployment environment.
 - [ ] Run `bun run test`, `bunx tsc --noEmit` and `bun run build`.

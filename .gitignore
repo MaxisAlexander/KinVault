@@ -38,3 +38,8 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Python video build artifacts
+__pycache__/
+*.pyc
+docs/video/build/

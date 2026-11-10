@@ -1,0 +1,54 @@
+{
+  "landing": {
+    "hash": "ed3426e707a5c4d1",
+    "file": "01-landing.mp3"
+  },
+  "features": {
+    "hash": "43fae4f3982f470a",
+    "file": "02-features.mp3"
+  },
+  "auth": {
+    "hash": "807af2467253c7fe",
+    "file": "03-auth.mp3"
+  },
+  "dashboard": {
+    "hash": "4cb6f411a8ab6182",
+    "file": "04-dashboard.mp3"
+  },
+  "roles": {
+    "hash": "e5edd0162dce60f5",
+    "file": "05-roles.mp3"
+  },
+  "setup": {
+    "hash": "fbad38004375a569",
+    "file": "06-setup.mp3"
+  },
+  "spending": {
+    "hash": "3ab928774308f2f3",
+    "file": "07-spending.mp3"
+  },
+  "loans": {
+    "hash": "f39f6a8be2a86141",
+    "file": "08-loans.mp3"
+  },
+  "trust": {
+    "hash": "f9e128052999a7d6",
+    "file": "09-trust.mp3"
+  },
+  "new-lockbox": {
+    "hash": "d538edc9ec3dfc82",
+    "file": "10-new-lockbox.mp3"
+  },
+  "receipts": {
+    "hash": "672f47e242ffa82b",
+    "file": "11-receipts.mp3"
+  },
+  "arch": {
+    "hash": "5df4bd41898e2224",
+    "file": "12-arch.mp3"
+  },
+  "close": {
+    "hash": "07f5d291c5e4f8e3",
+    "file": "13-close.mp3"
+  }
+}

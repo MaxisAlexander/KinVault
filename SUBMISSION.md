@@ -10,7 +10,7 @@ November 23.
 | Live deployment link     | **DONE** — https://kinvault-six.vercel.app            | `README.md` → Live deployment   |
 | Public GitHub repository | **DONE** — https://github.com/MaxisAlexander/KinVault | `main` branch                   |
 | Pitch deck               | **TODO**                                              | Add `deck.pdf` or a hosted link |
-| 2-minute demo video      | **TODO**                                              | Add the video URL               |
+| 2-minute demo video      | **DONE** — 2:19, 1080p, narrated                      | `docs/video/kinvault-demo.mp4`  |
 
 ## Rubric mapping
 
@@ -60,20 +60,26 @@ November 23.
 - `TESTING.md`: automated coverage and the manual testnet checklist.
 - `SUBMISSION.md`: this rubric map and the remaining checklist.
 
-## Suggested 2-minute video
+## Demo video
 
-1. **0:00–0:15** — Problem: families hold Bitcoin but sell it for everyday
-   expenses and emergencies.
-2. **0:15–0:35** — Demo mode: dashboard, family rules, two-approval expense,
-   lockbox.
-3. **0:35–1:05** — Live funding: connect Mezo Testnet wallet, fund the treasury
-   with test MUSD, show the explorer transaction and the verified ledger credit.
-4. **1:05–1:35** — Borrow: open a trove with 0.01 test BTC, borrow 2,000 MUSD,
-   show `TroveUpdated` and the live protocol panel.
-5. **1:35–1:55** — Repay/close: `closeTrove()` returns the BTC; show the
-   explorer and the unlocked collateral.
-6. **1:55–2:00** — Close: server-authoritative verification, replay protection,
-   testnet-only, open-source repo.
+The submitted walkthrough is `docs/video/kinvault-demo.mp4` (2:19, 1920×1080,
+narrated). It covers:
+
+1. **0:00–0:28** — Landing, the three product pillars, and the three sign-in
+   paths (email, Google, wallet signature).
+2. **0:28–0:58** — Dashboard, deposits and withdrawals, member sub-accounts,
+   roles and the acting-as switcher, and onboarding/invite codes.
+3. **0:58–1:25** — Two-approval spending, the under-$100 auto-approve rule,
+   expense logging, filters and charts; the loan calculator, LTV and stress
+   sliders, borrow, repay and repay-in-full.
+4. **1:25–1:56** — Lockboxes, letters, guardian signatures, contributions, a new
+   lockbox, and hash-chained receipts with Mezo block heights.
+5. **1:56–2:19** — The server-side verification model and the close.
+
+The walkthrough uses demo mode so it can be watched without a wallet. The
+verification model it describes is the live path in `src/lib/chain/`.
+
+Script and rebuild notes: `docs/video/DEMO-SCRIPT.md`.
 
 ## Suggested deck
 
@@ -107,5 +113,6 @@ Screenshots ready to drop into the deck:
 - [ ] Set `SUPABASE_SERVICE_ROLE_KEY` in the deployment environment.
 - [ ] Run `bun run test`, `bunx tsc --noEmit` and `bun run build`.
 - [ ] Run `bun run test:live` and save the output.
-- [ ] Record the 2-minute video and upload the deck.
+- [x] Record the 2:19 narrated walkthrough — `docs/video/kinvault-demo.mp4`.
+- [ ] Upload the video and deck to the submission form.
 - [ ] Submit on the Akindo Buildathon page before the deadline.

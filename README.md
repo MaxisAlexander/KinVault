@@ -295,7 +295,8 @@ project before the first live transaction.
 
 ### Live deployment
 
-_Add the deployed URL here before submission:_
+- Repository: https://github.com/MaxisAlexander/KinVault
+- Live app: _add the deployed URL here before submission_
 
 ```text
 https://<your-kinvault-deployment>

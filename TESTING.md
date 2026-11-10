@@ -7,7 +7,7 @@ and a read-only/manual Mezo Testnet checklist that produces explorer evidence.
 
 ```sh
 bun install
-bun run test        # 55 unit/integration tests across 4 files
+bun run test        # 58 unit/integration tests across 4 files
 bunx tsc --noEmit   # strict TypeScript check
 bun run build       # production build
 bun run lint        # ESLint
@@ -46,6 +46,9 @@ The suite never signs a transaction and never depends on the network.
   `repayLoan` actions;
 - live expenses are approved without a ledger debit; only the verified
   on-chain payment debits the treasury;
+- live lockbox contributions earmark treasury MUSD (the token stays in the
+  treasury wallet), and releasing one returns the earmark to the spendable
+  treasury balance so guardians can withdraw it to the child's wallet;
 - demo mode still pays instant expenses immediately.
 
 ## 2. Read-only Mezo Testnet smoke test

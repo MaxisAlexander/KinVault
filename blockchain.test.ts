@@ -807,4 +807,77 @@ describe("live mode value rules", () => {
     if (!result.ok) return;
     expect(result.ledger.vault.musd).toBe(458);
   });
+
+  it("earmarks treasury MUSD for a lockbox without pretending it left the treasury", () => {
+    const start: Ledger = {
+      ...baseLedger(),
+      vault: { ...baseLedger().vault, musd: 500 },
+      lockboxes: [lockbox()],
+    };
+    const result = applyAction(
+      start,
+      { type: "contributeLockbox", lockboxId: "lb1", amount: 100 },
+      ctx(true),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // The earmark leaves the spendable balance but stays in the treasury wallet.
+    expect(result.ledger.vault.musd).toBe(400);
+    expect(result.ledger.lockboxes[0]?.balance).toBe(100);
+    // Live families do not have funded member sub-accounts.
+    expect(result.ledger.members[0]?.musd).toBe(0);
+  });
+
+  it("refuses a live lockbox contribution larger than the treasury", () => {
+    const start: Ledger = {
+      ...baseLedger(),
+      vault: { ...baseLedger().vault, musd: 10 },
+      lockboxes: [lockbox()],
+    };
+    const result = applyAction(
+      start,
+      { type: "contributeLockbox", lockboxId: "lb1", amount: 100 },
+      ctx(true),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/treasury/i);
+  });
+
+  it("returns a released live lockbox to the spendable treasury balance", () => {
+    const start: Ledger = {
+      ...baseLedger(),
+      vault: { ...baseLedger().vault, musd: 0 },
+      lockboxes: [
+        {
+          ...lockbox(),
+          balance: 100,
+          unlockDate: "2026-01-01T00:00:00.000Z",
+          signatures: ["m2"],
+        },
+      ],
+    };
+    const result = applyAction(start, { type: "signLockbox", lockboxId: "lb1" }, ctx(true));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.ledger.lockboxes[0]?.status).toBe("released");
+    expect(result.ledger.vault.musd).toBe(100);
+    expect(result.ledger.members[1]?.musd).toBe(0);
+    expect(result.message).toMatch(/released/i);
+  });
 });
+
+function lockbox(): Ledger["lockboxes"][number] {
+  return {
+    id: "lb1",
+    name: "University fund",
+    beneficiaryId: "m2",
+    goal: 5_000,
+    balance: 0,
+    unlockDate: "2030-09-01T00:00:00.000Z",
+    milestone: "Starts university",
+    letter: { fromId: "m1", title: "For your first day", body: "Keep going." },
+    guardians: ["m1", "m2"],
+    signatures: [],
+    status: "locked",
+  };
+}

@@ -588,22 +588,29 @@ export function applyAction(l: Ledger, a: VaultAction, ctx: EngineCtx): EngineRe
       const lb = l.lockboxes.find((x) => x.id === a.lockboxId);
       if (!lb) return fail("Lockbox not found");
       if (lb.status === "released") return fail("This lockbox has already been released");
-      if (a.amount > actor.musd + 1e-9)
+      // Live families keep their MUSD in the treasury wallet, not in on-chain
+      // sub-accounts, so a live contribution earmarks treasury MUSD instead.
+      if (ctx.onchain) {
+        if (a.amount > l.vault.musd + 1e-9)
+          return fail(`The treasury only has ${l.vault.musd.toFixed(2)} MUSD`);
+      } else if (a.amount > actor.musd + 1e-9) {
         return fail(`${actor.name}'s sub-account only has ${actor.musd.toFixed(2)} MUSD`);
+      }
       return {
         ok: true,
         message: `Locked into ${lb.name}`,
         ledger: {
           ...l,
-          members: l.members.map((m) =>
-            m.id === actor.id ? { ...m, musd: m.musd - a.amount } : m,
-          ),
+          vault: ctx.onchain ? { ...l.vault, musd: l.vault.musd - a.amount } : l.vault,
+          members: ctx.onchain
+            ? l.members
+            : l.members.map((m) => (m.id === actor.id ? { ...m, musd: m.musd - a.amount } : m)),
           lockboxes: l.lockboxes.map((x) =>
             x.id === lb.id ? { ...x, balance: x.balance + a.amount } : x,
           ),
           activity: withLog(l, ctx, {
             kind: "lockbox",
-            text: `added to ${lb.name}`,
+            text: ctx.onchain ? `set aside treasury MUSD in ${lb.name}` : `added to ${lb.name}`,
             amount: a.amount,
             asset: "MUSD",
             direction: "in",
@@ -627,18 +634,25 @@ export function applyAction(l: Ledger, a: VaultAction, ctx: EngineCtx): EngineRe
         message: release ? "Lockbox released — the letter is now open" : "Signature recorded",
         ledger: {
           ...l,
+          // Live families never hold per-member tokens on chain: the MUSD stayed
+          // in the treasury, so a release returns the earmark to the treasury.
+          // The guardians then withdraw it to the child's linked wallet.
+          vault: release && ctx.onchain ? { ...l.vault, musd: l.vault.musd + lb.balance } : l.vault,
           lockboxes: l.lockboxes.map((x) =>
             x.id === lb.id ? { ...x, signatures, status: release ? "released" : "locked" } : x,
           ),
-          members: release
-            ? l.members.map((m) =>
-                m.id === lb.beneficiaryId ? { ...m, musd: m.musd + lb.balance } : m,
-              )
-            : l.members,
+          members:
+            release && !ctx.onchain
+              ? l.members.map((m) =>
+                  m.id === lb.beneficiaryId ? { ...m, musd: m.musd + lb.balance } : m,
+                )
+              : l.members,
           activity: withLog(l, ctx, {
             kind: "lockbox",
             text: release
-              ? `released ${lb.name} to ${child?.name ?? "the beneficiary"}`
+              ? ctx.onchain
+                ? `released ${lb.name} to ${child?.name ?? "the beneficiary"} — ready to withdraw to their wallet`
+                : `released ${lb.name} to ${child?.name ?? "the beneficiary"}`
               : `signed guardian unlock for ${lb.name} (${signatures.length} of ${REQUIRED_GUARDIAN_SIGNATURES})`,
             amount: release ? lb.balance : undefined,
             asset: release ? "MUSD" : undefined,

@@ -42,7 +42,7 @@ November 23.
 - Server-authoritative ledger: the browser sends only a transaction hash.
 - Replay protection via `onchain_transactions.tx_hash` primary key.
 - Hash-chained activity log.
-- 55 automated tests plus a read-only Mezo RPC smoke test.
+- 58 automated tests plus a read-only Mezo RPC smoke test.
 - Live mode never applies an optimistic balance; it waits for the verified
   server ledger.
 

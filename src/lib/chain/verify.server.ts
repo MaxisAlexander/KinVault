@@ -91,6 +91,9 @@ export async function verifyMusdTransfer(
   });
   const match = transfers.find(
     (log) =>
+      // Only logs emitted by the canonical MUSD contract count. A receipt can
+      // contain logs from any contract the transaction touched.
+      sameAddress(log.address, MUSD.address) &&
       sameAddress(log.args.to, params.expectedTo) &&
       (!params.expectedFrom || sameAddress(log.args.from, params.expectedFrom)) &&
       log.args.value >= params.minAmountWei,

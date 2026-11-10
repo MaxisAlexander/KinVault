@@ -70,9 +70,9 @@ function Trust() {
         <div className="mb-6 rounded-2xl border border-border bg-surface px-5 py-4 text-sm text-muted-foreground">
           <span className="font-semibold text-foreground">Live treasury note:</span> lockboxes are
           earmarks inside the family ledger — the MUSD stays in the treasury wallet. Releasing one
-          credits the child's sub-account; use{" "}
+          returns it to the spendable treasury balance; use{" "}
           <span className="font-semibold text-foreground">Withdraw</span> on the dashboard to send
-          it to their linked wallet on Mezo Testnet.
+          it to the child's linked wallet on Mezo Testnet.
         </div>
       )}
 
@@ -265,7 +265,11 @@ function LockboxCard({ lb }: { lb: Lockbox }) {
             <div className="flex gap-2">
               <Input
                 inputMode="decimal"
-                placeholder={`Add from ${acting.name}'s account`}
+                placeholder={
+                  state.mode === "live"
+                    ? "Add from the treasury"
+                    : `Add from ${acting.name}'s account`
+                }
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 className="h-10 rounded-xl"

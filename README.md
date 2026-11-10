@@ -302,12 +302,15 @@ Supabase Auth → URL Configuration so sign-in redirects work.
 
 ### Live deployment
 
-- Repository: https://github.com/MaxisAlexander/KinVault
-- Live app: _add the deployed URL here before submission_
+- **Live app:** https://kinvault-six.vercel.app
+- **Repository:** https://github.com/MaxisAlexander/KinVault
 
 ```text
-https://<your-kinvault-deployment>
+https://kinvault-six.vercel.app
 ```
+
+The app is deployed on Vercel from `main`; every push to `main` triggers a
+production deployment. `vercel.json` selects Nitro's Vercel preset.
 
 The submission also requires a public GitHub repository, a pitch deck and a
 2-minute demo video. `SUBMISSION.md` tracks those items.

@@ -38,6 +38,20 @@ configuration in the chain layer.
 These are demo-mode captures. The network pill in the header shows the live
 Mezo Testnet block height and BTC price from `PriceFeed.fetchPrice()`.
 
+## Demo video
+
+[![Watch the KinVault walkthrough](docs/video/kinvault-demo-poster.png)](docs/video/kinvault-demo.mp4)
+
+A 2:19 narrated walkthrough of the landing page, sign-in options, dashboard,
+deposits and withdrawals, member roles, spending approvals, BTC-backed loans,
+lockboxes, receipts and the server-side verification model.
+
+- Video: [`docs/video/kinvault-demo.mp4`](docs/video/kinvault-demo.mp4)
+- Script and rebuild notes: [`docs/video/DEMO-SCRIPT.md`](docs/video/DEMO-SCRIPT.md)
+
+The walkthrough uses the sample family in demo mode; Mezo block height and BTC
+price are live. Live-mode writes require a signed-in family and a funded wallet.
+
 ---
 
 ## What is actually on-chain

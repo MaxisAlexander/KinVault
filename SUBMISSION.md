@@ -80,11 +80,21 @@ November 23.
 1. Problem and who feels it.
 2. Product: one family vault, six seats, shared rules.
 3. Why Mezo: BTC collateral + MUSD without selling Bitcoin.
-4. Live demo screenshots and explorer evidence.
+4. Live demo screenshots and explorer evidence (`docs/screenshots/`).
 5. Architecture: browser → tx hash → server verification → ledger.
 6. Security: call decoding, event anchoring, replay protection, RLS.
 7. Business model: subscription or treasury fee; path to mainnet.
 8. Roadmap and team.
+
+Screenshots ready to drop into the deck:
+
+| File                                | Page                   |
+| ----------------------------------- | ---------------------- |
+| `docs/screenshots/01-landing.png`   | Landing                |
+| `docs/screenshots/02-dashboard.png` | Family dashboard       |
+| `docs/screenshots/03-spending.png`  | Spending and approvals |
+| `docs/screenshots/04-loans.png`     | Borrow against BTC     |
+| `docs/screenshots/05-trust.png`     | Generational lockboxes |
 
 ## Pre-submit checklist
 

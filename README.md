@@ -13,6 +13,33 @@ configuration in the chain layer.
 
 ---
 
+## Screenshots
+
+**Landing**
+
+![Landing page](docs/screenshots/01-landing.png)
+
+**Family dashboard**
+
+![Family dashboard](docs/screenshots/02-dashboard.png)
+
+**Spending with two-approval rules**
+
+![Spending](docs/screenshots/03-spending.png)
+
+**Borrowing against BTC**
+
+![Loans](docs/screenshots/04-loans.png)
+
+**Generational lockboxes**
+
+![Generational trust](docs/screenshots/05-trust.png)
+
+These are demo-mode captures. The network pill in the header shows the live
+Mezo Testnet block height and BTC price from `PriceFeed.fetchPrice()`.
+
+---
+
 ## What is actually on-chain
 
 | Flow                   | What happens                                                                                                                                                                                                    |
@@ -194,6 +221,9 @@ bun run test:live   # read-only smoke test against Mezo Testnet
 bun run build       # production build
 ```
 
+GitHub Actions runs type checking, lint, tests and the production build on every
+push (`.github/workflows/ci.yml`).
+
 `blockchain.test.ts` covers:
 
 - chain 31611 and canonical token/protocol addresses
@@ -229,6 +259,27 @@ with expected explorer results.
 - MUSD/MEZO/protocol addresses are constants; no user-supplied token address is
   trusted.
 - Testnet only. Do not reuse this configuration with real funds without an audit.
+
+---
+
+## Deployment
+
+The build produces a standard Nitro Node server in `.output/server/index.mjs`.
+
+**Docker (any host):**
+
+```sh
+docker build -t kinvault .
+docker run --rm -p 3000:3000 --env-file .env.production kinvault
+```
+
+**Vercel / Netlify / Render:** build command `bun run build`, start command
+`node .output/server/index.mjs`, and set the environment variables from the
+table above. `SUPABASE_SERVICE_ROLE_KEY` must be present in the server
+environment or verified ledger writes fail.
+
+Apply the Drizzle migrations in `drizzle/migrations/` to the production Supabase
+project before the first live transaction.
 
 ---
 

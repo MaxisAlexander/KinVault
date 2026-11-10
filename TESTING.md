@@ -198,6 +198,15 @@ Apply the SQL files in `drizzle/migrations/` in order:
 3. `0002_onchain_transactions.sql`
 4. `0003_withdrawals.sql`
 
+`drizzle/migrations/apply-0002-0003.sql` is a single idempotent script that
+applies the two Mezo Testnet migrations (treasury address, the
+`onchain_transactions` ledger and the withdrawal kinds). It is the fastest way
+to bring an existing Supabase project up to date from the dashboard SQL editor.
+
+To check what a project already has, query the REST API with the publishable
+key: a missing table returns `404`, a missing column returns `400`, and an
+existing table with row security returns `200 []`.
+
 The server requires `SUPABASE_SERVICE_ROLE_KEY` for verified ledger writes. The
 browser only receives the publishable key. `.env` is git-ignored; copy
 `.env.example` to `.env` and fill in the values.

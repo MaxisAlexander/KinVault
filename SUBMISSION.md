@@ -7,7 +7,7 @@ November 23.
 
 | Item                     | Status                                                | Where                           |
 | ------------------------ | ----------------------------------------------------- | ------------------------------- |
-| Live deployment link     | **TODO — add before submitting**                      | `README.md` → Live deployment   |
+| Live deployment link     | **DONE** — https://kinvault-six.vercel.app            | `README.md` → Live deployment   |
 | Public GitHub repository | **DONE** — https://github.com/MaxisAlexander/KinVault | `main` branch                   |
 | Pitch deck               | **TODO**                                              | Add `deck.pdf` or a hosted link |
 | 2-minute demo video      | **TODO**                                              | Add the video URL               |
@@ -98,7 +98,8 @@ Screenshots ready to drop into the deck:
 
 ## Pre-submit checklist
 
-- [ ] Deploy the app and add the URL to `README.md`.
+- [x] Deploy the app and add the URL to `README.md` —
+      https://kinvault-six.vercel.app
 - [x] Create a public GitHub repository and push this directory —
       https://github.com/MaxisAlexander/KinVault
 - [x] Confirm `.env` is not committed and `.env.example` is.

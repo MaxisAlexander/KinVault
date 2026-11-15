@@ -328,7 +328,21 @@ function Landing() {
           </div>
 
           <div className="flex flex-col gap-3 border-t border-primary-foreground/20 pt-6 text-xs leading-relaxed text-primary-foreground/65 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
-            <p>KinVault · Mezo Family Trust</p>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <p>KinVault · Mezo Family Trust</p>
+              <Link
+                to="/privacy"
+                className="rounded-sm font-semibold hover:text-primary-foreground hover:underline hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground"
+              >
+                Privacy
+              </Link>
+              <Link
+                to="/terms"
+                className="rounded-sm font-semibold hover:text-primary-foreground hover:underline hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground"
+              >
+                Terms
+              </Link>
+            </div>
             <p className="max-w-md sm:text-right">
               Demo balances are sample data. Demo actions do not move real funds.
             </p>

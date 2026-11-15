@@ -230,6 +230,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                     </button>
                   }
                 />
+                <Link to="/privacy" className="font-semibold hover:text-foreground hover:underline">
+                  Privacy
+                </Link>
+                <Link to="/terms" className="font-semibold hover:text-foreground hover:underline">
+                  Terms
+                </Link>
               </span>
             </>
           )}

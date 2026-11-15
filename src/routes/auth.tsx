@@ -279,6 +279,17 @@ function AuthPage() {
                   Try the demo family
                 </Link>
               </p>
+              <p className="mt-6 text-center text-xs text-muted-foreground">
+                By continuing you agree to our{" "}
+                <Link to="/terms" className="font-semibold text-primary hover:underline">
+                  Terms
+                </Link>{" "}
+                and{" "}
+                <Link to="/privacy" className="font-semibold text-primary hover:underline">
+                  Privacy Policy
+                </Link>
+                .
+              </p>
             </>
           )}
         </div>

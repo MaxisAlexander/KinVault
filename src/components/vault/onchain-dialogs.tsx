@@ -31,6 +31,7 @@ import {
   confirmMusdDeposit,
   confirmWithdrawal,
 } from "@/lib/family.functions";
+import { toastError } from "@/lib/errors";
 import { actions, memberById, useVault, type Expense } from "@/lib/vault-store";
 import { connectWallet, getWalletState, useWallet } from "@/lib/wallet";
 
@@ -124,7 +125,7 @@ export function FundVaultDialog({
       setOpen(false);
       setAmount("");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "The testnet transfer failed");
+      toastError(error, "The testnet transfer failed");
     } finally {
       setBusy(false);
     }
@@ -268,7 +269,7 @@ export function PayExpenseButton({ expense }: { expense: Expense }) {
       toast.success("Expense settled with MUSD", { description: <TxLink hash={result.hash} /> });
       setOpen(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "The MUSD payment failed");
+      toastError(error, "The MUSD payment failed");
     } finally {
       setBusy(false);
     }
@@ -399,7 +400,7 @@ export function WithdrawDialog({ trigger }: { trigger: ReactNode }) {
       setOpen(false);
       setAmount("");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "The testnet withdrawal failed");
+      toastError(error, "The testnet withdrawal failed");
     } finally {
       setBusy(false);
     }

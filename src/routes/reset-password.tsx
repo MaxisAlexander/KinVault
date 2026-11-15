@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/vault/logo";
+import { toastError } from "@/lib/errors";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/reset-password")({
@@ -53,7 +54,7 @@ function ResetPassword() {
     const { error } = await supabase.auth.updateUser({ password });
     setBusy(false);
     if (error) {
-      toast.error(error.message);
+      toastError(error, "Could not save your password");
       return;
     }
     toast.success("Password updated");

@@ -36,6 +36,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { buildWalletLinkMessage } from "@/lib/chain/wallet-link";
 import { linkWallet as linkWalletServer } from "@/lib/family.functions";
+import { toastError } from "@/lib/errors";
 import { accountLabel, usd } from "@/lib/format";
 import { getWalletState, signMessage } from "@/lib/wallet";
 import { REQUIRED_UNFREEZE_SIGNATURES, canFreeze } from "@/lib/vault-logic";
@@ -86,7 +87,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       await queryClient.invalidateQueries();
       toast.success("Wallet linked to your family seat");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Wallet linking failed");
+      toastError(error, "Wallet linking failed");
     }
   }
 

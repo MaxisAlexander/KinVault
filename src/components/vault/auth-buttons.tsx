@@ -3,6 +3,7 @@ import { toast } from "sonner";
 
 import { WalletLogoStack, WalletSignInDialog } from "@/components/vault/wallet-sign-in";
 import { supabase } from "@/integrations/supabase/client";
+import { toastError } from "@/lib/errors";
 
 const GOOGLE_G = (
   <svg
@@ -64,7 +65,7 @@ async function googleSignIn(onDone: () => void) {
     options: { redirectTo: window.location.origin + "/auth" },
   });
   if (error) {
-    toast.error("Sign-in didn't complete", { description: error.message });
+    toastError(error, "Sign-in didn't complete");
     return;
   }
   onDone();

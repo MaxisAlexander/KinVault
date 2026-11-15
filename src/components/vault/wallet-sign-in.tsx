@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { toastError } from "@/lib/errors";
 import { buildWalletSignInMessage } from "@/lib/wallet-auth";
 import { walletSignIn } from "@/lib/wallet-auth.functions";
 import {
@@ -145,12 +146,7 @@ export function WalletSignInDialog({
       onOpenChange(false);
       onSignedIn();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Wallet sign-in failed";
-      toast.error("Wallet sign-in didn't complete", {
-        description: /reject|denied|cancel/i.test(msg)
-          ? "The request was cancelled in your wallet."
-          : msg,
-      });
+      toastError(e, "Wallet sign-in didn't complete");
     } finally {
       setBusy(null);
     }

@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { SocialButtons } from "@/components/vault/auth-buttons";
 import { Logo } from "@/components/vault/logo";
 import { supabase } from "@/integrations/supabase/client";
+import { toastError } from "@/lib/errors";
 import { safeRedirect } from "@/lib/safe-redirect";
 import familyImage from "@/assets/kinvault-family-login.jpg";
 
@@ -116,7 +117,7 @@ function AuthPage() {
         setSent("reset");
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong");
+      toastError(err);
     } finally {
       setBusy(false);
     }

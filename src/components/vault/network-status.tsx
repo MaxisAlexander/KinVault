@@ -12,6 +12,7 @@ import {
   explorerBlockUrl,
   explorerTokenUrl,
 } from "@/lib/chain/config";
+import { toastError } from "@/lib/errors";
 import { useMezo } from "@/lib/mezo";
 import { cn } from "@/lib/utils";
 import {
@@ -126,11 +127,7 @@ export function WalletButton({ onLink }: { onLink?: (() => void) | undefined }) 
           {!onMezo && (
             <Button
               size="sm"
-              onClick={() =>
-                switchToMezo().catch((e) =>
-                  toast.error(e instanceof Error ? e.message : "Switch failed"),
-                )
-              }
+              onClick={() => switchToMezo().catch((e) => toastError(e, "Switch failed"))}
             >
               Switch to Mezo Testnet
             </Button>

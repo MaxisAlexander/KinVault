@@ -17,6 +17,7 @@ import {
   type TroveState,
 } from "@/lib/chain/client";
 import { MUSD, explorerAddressUrl, shortAddress } from "@/lib/chain/config";
+import { toastError } from "@/lib/errors";
 import { summarizeTrove, type TroveSummary } from "@/lib/chain/protocol";
 import { getInjectedProvider, openTrove, repayTrove } from "@/lib/chain/transactions";
 import { confirmTroveOpen, confirmTroveRepay } from "@/lib/family.functions";
@@ -153,7 +154,7 @@ export function TrovePanel() {
       });
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not open the trove");
+      toastError(e, "Could not open the trove");
     } finally {
       setBusy(false);
     }
@@ -183,7 +184,7 @@ export function TrovePanel() {
       setRepayAmount("");
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not repay the trove");
+      toastError(e, "Could not repay the trove");
     } finally {
       setBusy(false);
     }

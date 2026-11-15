@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AppShell } from "@/components/vault/app-shell";
 import { vaultQueryKey } from "@/components/vault/vault-session";
+import { toastError } from "@/lib/errors";
 import { addMember, regenerateInvite, removeMember } from "@/lib/family.functions";
 import { useVault } from "@/lib/vault-store";
 
@@ -56,7 +57,7 @@ function FamilyPage() {
       await refresh();
       toast.success(ok);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Something went wrong");
+      toastError(e);
     } finally {
       setBusy(false);
     }
@@ -73,6 +74,29 @@ function FamilyPage() {
           You're viewing the demo family. Sign in and create your own vault to invite real members.
         </p>
       )}
+
+      <div className="mt-6 rounded-2xl border border-border bg-card p-4 shadow-soft">
+        <h2 className="text-sm font-bold">How a member joins this vault</h2>
+        <ol className="mt-2 space-y-1 text-sm text-muted-foreground">
+          <li>
+            1. They create their own account — email, Google or a wallet. Every route works the same
+            way.
+          </li>
+          <li>
+            2. On the setup screen they pick <b className="text-foreground">Join with a code</b>{" "}
+            instead of creating a vault.
+          </li>
+          <li>
+            3. They paste the invite code for their seat. It is single use, so send it privately and
+            use the refresh icon if it leaks.
+          </li>
+          <li>
+            4. Afterwards they can link their own Mezo wallet —{" "}
+            <b className="text-foreground">Connect wallet → Link to my family profile</b> — to fund
+            or spend from that seat.
+          </li>
+        </ol>
+      </div>
 
       <div className="mt-6 divide-y divide-border rounded-2xl border border-border bg-card shadow-soft">
         {seats.map((s) => (

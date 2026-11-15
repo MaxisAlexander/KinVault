@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/vault/logo";
 import { setDemoPreference, vaultQueryKey } from "@/components/vault/vault-session";
+import { toastError } from "@/lib/errors";
 import { createFamily, joinFamily, previewInvite } from "@/lib/family.functions";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
@@ -41,19 +42,6 @@ const ROLES: { value: Role; label: string }[] = [
   { value: "teen", label: "Teen" },
   { value: "kid", label: "Kid" },
 ];
-
-function errMsg(e: unknown) {
-  if (e instanceof Error) {
-    try {
-      const parsed = JSON.parse(e.message);
-      if (Array.isArray(parsed) && parsed[0]?.message) return String(parsed[0].message);
-    } catch {
-      /* plain message */
-    }
-    return e.message;
-  }
-  return "Something went wrong";
-}
 
 function Onboarding() {
   const [tab, setTab] = useState<"create" | "join">("create");
@@ -123,7 +111,7 @@ function CreateForm() {
       toast.success("Your family vault is ready");
       await finish();
     } catch (err) {
-      toast.error(errMsg(err));
+      toastError(err);
     } finally {
       setBusy(false);
     }
@@ -303,7 +291,7 @@ function JoinForm() {
       if (!res) toast.error("That invite code isn't valid or was already used");
       setInfo(res);
     } catch (err) {
-      toast.error(errMsg(err));
+      toastError(err);
     } finally {
       setBusy(false);
     }
@@ -316,7 +304,7 @@ function JoinForm() {
       toast.success(`Welcome to ${info?.familyName}`);
       await finish();
     } catch (err) {
-      toast.error(errMsg(err));
+      toastError(err);
     } finally {
       setBusy(false);
     }

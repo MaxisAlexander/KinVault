@@ -133,10 +133,42 @@ Screenshots used in the deck and the submission form:
 - [x] Create a public GitHub repository and push this directory —
       https://github.com/MaxisAlexander/KinVault
 - [x] Confirm `.env` is not committed and `.env.example` is.
-- [ ] Apply all four Drizzle migrations to the production Supabase project.
-- [ ] Set `SUPABASE_SERVICE_ROLE_KEY` in the deployment environment.
-- [ ] Run `bun run test`, `bunx tsc --noEmit` and `bun run build`.
-- [ ] Run `bun run test:live` and save the output.
+- [x] Apply all four Drizzle migrations to the production Supabase project.
+- [x] Set `SUPABASE_SERVICE_ROLE_KEY` in the deployment environment.
+- [x] Run `bun run test`, `bunx tsc --noEmit` and `bun run build` — 58/58 tests
+      pass, TypeScript clean, production build succeeds.
+- [x] Run `bun run test:live` and save the output — see below.
 - [x] Record the 2:19 narrated walkthrough — `docs/video/kinvault-demo.mp4`.
 - [ ] Upload the video and deck to the submission form.
 - [ ] Submit on the Akindo Buildathon page before the deadline.
+
+## Live deployment verification
+
+The production deployment is backed by its own Supabase project
+(`qfuybxxijknirukcmdvz`), not a preview backend:
+
+- All four Drizzle migrations (`0000`–`0003`) applied with
+  `bun run scripts/apply-migrations.ts`.
+- `SUPABASE_SERVICE_ROLE_KEY` is set as a Vercel production variable and is
+  never exposed to the browser bundle.
+- End-to-end check on https://kinvault-six.vercel.app: email sign-in, family
+  creation on `/onboarding`, then `/dashboard` hydrating the saved family
+  ("Test Family family · saved") with live activity, real dates and
+  "Verified on Mezo Testnet · no simulated yield" instead of the demo banner.
+- Demo mode is unchanged and still reachable with no account.
+
+`bun run test:live` output against Mezo Testnet:
+
+```text
+chain: 31611
+block: 16792109
+gas: 0.000000146 gwei
+MUSD: 0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503 (18)
+MEZO: 0x7B7c000000000000000000000000000000000001 (18)
+BTC/USD from Mezo PriceFeed: $63752.31
+MCR: 1.1; gas compensation: 200 MUSD
+Minimum net debt: 1800 MUSD
+BorrowerOperations: 0xCdF7028ceAB81fA0C6971208e83fa7872994beE5
+mezo live check: ok
+```
+

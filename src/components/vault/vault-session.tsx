@@ -120,6 +120,13 @@ export function useVaultSession(): {
     };
   }, [wantLive, familyId, queryClient]);
 
+  useEffect(() => {
+    if (!query.isError) return;
+    // Falling back to the sample family is deliberate (never show unverified
+    // balances), but the reason must not disappear silently.
+    console.error("[KinVault] Could not load the live vault, showing the demo family", query.error);
+  }, [query.isError, query.error]);
+
   let status: SessionStatus = "resolving";
   if (auth.ready && !wantLive) status = "demo";
   else if (wantLive && query.data && familyId === query.data.family.id) status = "live";

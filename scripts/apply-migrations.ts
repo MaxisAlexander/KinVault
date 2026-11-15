@@ -3,7 +3,7 @@
  *
  * Usage:
  *   DB_HOST=db.<ref>.supabase.co DB_PASSWORD=... bun run scripts/apply-migrations.ts
- *   LOVABLE_DB_MIGRATION_URL=postgresql://... bun run scripts/apply-migrations.ts
+ *   MIGRATION_DATABASE_URL=postgresql://... bun run scripts/apply-migrations.ts
  *
  * Safe to re-run: every migration is written with IF NOT EXISTS / IF EXISTS.
  */
@@ -20,7 +20,7 @@ if (files.length === 0) {
   throw new Error(`No migrations found in ${dir}`);
 }
 
-const url = process.env["LOVABLE_DB_MIGRATION_URL"];
+const url = process.env["MIGRATION_DATABASE_URL"];
 const host = process.env["DB_HOST"];
 const password = process.env["DB_PASSWORD"];
 

@@ -221,9 +221,12 @@ signed by the user's wallet.
 Demo mode needs no configuration. Live mode - where every balance change is a
 verified Mezo transaction - needs two things on the server:
 
-1. **Schema.** Apply the Drizzle migrations to the Supabase project, including
-   `drizzle/migrations/apply-0002-0003.sql`, which adds `families.treasury_address`
-   and the `onchain_transactions` replay-protection table.
+1. **Schema.** Apply the Drizzle migrations to the Supabase project with
+   `bun run scripts/apply-migrations.ts`, which runs `0000`–`0003` in filename
+   order and is safe to re-run. It reads `MIGRATION_DATABASE_URL`, or
+   `DB_HOST` + `DB_PASSWORD` for a direct Postgres connection. If you can only
+   reach the Supabase SQL editor, paste `drizzle/migrations/apply-0002-0003.sql`
+   after `0000` and `0001`; it is the same statements in one pass.
 2. **Service-role key.** Set `SUPABASE_SERVICE_ROLE_KEY` in `.env` and in the
    hosting environment. Without it the server refuses to write and reports the
    missing variable instead of mutating the ledger.

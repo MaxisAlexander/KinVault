@@ -33,25 +33,18 @@ const STATUS_DOT = {
 export function NetworkPill() {
   const status = useMezo((s) => s.status);
   const block = useMezo((s) => s.block);
-  const latency = useMezo((s) => s.latencyMs);
-  const label =
-    status === "online" || status === "degraded"
-      ? `#${block?.toLocaleString("en-US")}`
-      : status === "connecting"
-        ? "Connecting"
-        : "Offline";
   return (
     <a
       href={block ? explorerBlockUrl(block) : "https://explorer.test.mezo.org"}
       target="_blank"
       rel="noreferrer"
-      title={`Mezo Testnet · chain ${MEZO_TESTNET_CHAIN_ID}${latency ? ` · ${latency}ms` : ""}`}
+      title={`Mezo Testnet · chain ${MEZO_TESTNET_CHAIN_ID}`}
       className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold lg:flex"
     >
       <span className={cn("h-2 w-2 rounded-full", STATUS_DOT[status])} />
       Mezo Testnet
-      <span className="tabular text-muted-foreground">{label}</span>
-      {latency !== null && <span className="tabular text-muted-foreground">· {latency}ms</span>}
+      {status === "connecting" && <span className="text-muted-foreground">Connecting</span>}
+      {status === "offline" && <span className="text-muted-foreground">Offline</span>}
     </a>
   );
 }

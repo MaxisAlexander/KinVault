@@ -127,7 +127,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex items-center gap-2.5">
             <NetworkPill />
             <div className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold xl:flex">
-              <span className="h-2 w-2 rounded-full bg-bitcoin" />
               BTC
               <span className="tabular">{usd(price, { round: true })}</span>
               {up ? (

@@ -1,7 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import {
   ArrowRight,
-  Bitcoin,
   HeartHandshake,
   Landmark,
   LockKeyhole,
@@ -161,9 +160,7 @@ function Landing() {
         <div className="grid lg:min-h-[min(calc(100svh-4rem),780px)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.12fr)]">
           <div className="flex items-center px-4 pb-10 pt-8 sm:px-6 sm:pb-14 sm:pt-12 lg:hero-inset lg:py-14 lg:pr-8">
             <div className="w-full max-w-xl lg:max-w-[34rem]">
-              <Pill className="mb-5">
-                <Bitcoin className="h-3.5 w-3.5" /> Powered by Mezo · BTC & MUSD
-              </Pill>
+              <Pill className="mb-5">Powered by Mezo · BTC & MUSD</Pill>
               <h1 className="text-[2.6rem] font-extrabold leading-[1.02] tracking-[-0.035em] text-foreground min-[400px]:text-5xl sm:text-6xl xl:text-[4.25rem]">
                 The family vault that grows with your household
               </h1>

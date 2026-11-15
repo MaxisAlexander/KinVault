@@ -216,6 +216,21 @@ Environment variables:
 No private key is ever stored in the app or the repository. All transactions are
 signed by the user's wallet.
 
+### Enabling live mode
+
+Demo mode needs no configuration. Live mode - where every balance change is a
+verified Mezo transaction - needs two things on the server:
+
+1. **Schema.** Apply the Drizzle migrations to the Supabase project, including
+   `drizzle/migrations/apply-0002-0003.sql`, which adds `families.treasury_address`
+   and the `onchain_transactions` replay-protection table.
+2. **Service-role key.** Set `SUPABASE_SERVICE_ROLE_KEY` in `.env` and in the
+   hosting environment. Without it the server refuses to write and reports the
+   missing variable instead of mutating the ledger.
+
+If either is missing the app stays in demo mode; it never falls back to
+unverified writes.
+
 ### Getting test assets
 
 1. Add Mezo Testnet to your wallet (chain `31611`, RPC `https://rpc.test.mezo.org`).

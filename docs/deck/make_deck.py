@@ -275,6 +275,26 @@ def label_bar(
     d.text((x + 22, y + h - 24), sub, font=f(MONO, 11), fill=MUTED)
 
 
+def label_band(
+    img: Image.Image,
+    box: tuple[int, int, int, int],
+    title: str,
+    sub: str,
+    radius: int = 18,
+    band_h: int = 64,
+) -> None:
+    """Caption band that sits below the screenshot instead of covering it."""
+    x, y, w, h = box
+    top = y + h - band_h
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle(
+        [(x, top), (x + w, y + h)], radius=radius, fill=(4, 16, 11)
+    )
+    d.rectangle([(x, top), (x + w, top + radius)], fill=(4, 16, 11))
+    d.text((x + 22, top + 12), title, font=f(SEMI, 19), fill=WHITE)
+    d.text((x + 22, top + 40), sub, font=f(MONO, 11), fill=MUTED)
+
+
 def save(img: Image.Image, name: str) -> str:
     path = os.path.join(OUT, name)
     img.save(path)
@@ -348,7 +368,6 @@ def slide_title_page(total: int) -> Image.Image:
         (6, 20, 15),
         GREEN,
     )
-    d.text((x + 18, 648), "TRY THE DEMO", font=f(MONO, 12), fill=DIM)
     d.text(
         (M, 706),
         "github.com/MaxisAlexander/KinVault",
@@ -362,7 +381,7 @@ def slide_title_page(total: int) -> Image.Image:
         d.text((sx, 800), value, font=f(BOLD, 34), fill=WHITE)
         d.text((sx, 844), label, font=f(REG, 14), fill=MUTED)
         sx += 270
-    d.line([(M, 908), (M + 760, 908)], fill=(255, 255, 255, 22), width=1)
+    d.line([(M, 908), (M + 820, 908)], fill=(255, 255, 255, 22), width=1)
     d.text(
         (M, 930),
         "Mezo Buildathon  ·  Wave 2  ·  November 2026",
@@ -474,12 +493,17 @@ def slide_walkthrough(total: int) -> Image.Image:
     header(d, "Walkthrough", 4, total)
     eyebrow(d, "Walkthrough")
     slide_title(d, "Every household flow, in one place.", 200, 56)
-    d.text(
-        (W - M, 218),
-        "2:19 narrated demo",
-        font=f(MONO_B, 14),
-        fill=GREEN,
-        anchor="ra",
+    demo_label = "2:19 NARRATED DEMO"
+    demo_w = d.textlength(demo_label, font=f(MONO_B, 12))
+    pill(
+        d,
+        W - M - demo_w - 36,
+        190,
+        demo_label,
+        f(MONO_B, 12),
+        GREEN,
+        (13, 46, 34),
+        (32, 92, 68),
     )
 
     tiles = [
@@ -511,10 +535,10 @@ def slide_walkthrough(total: int) -> Image.Image:
     for i, (path, title, sub, focus) in enumerate(tiles):
         col, row = i % 2, i // 2
         x = M + col * 860
-        y = 300 + row * 360
-        w, h = 820, 300
-        screenshot(img, path, (x, y, w, h), 18, cover=True, focus=focus)
-        label_bar(img, (x, y, w, h), title, sub, 18, bar_h=68)
+        y = 300 + row * 356
+        w, h = 820, 320
+        screenshot(img, path, (x, y, w, h - 46), 18, cover=True, focus=focus)
+        label_band(img, (x, y, w, h), title, sub, 18, band_h=64)
 
     return img
 
@@ -540,7 +564,7 @@ def slide_mezo(total: int) -> Image.Image:
         d.text((M + 70, y - 18), title, font=f(SEMI, 25), fill=WHITE)
         paragraph(d, M + 70, y + 18, 720, body, f(REG, 17), MUTED, 25)
 
-    fx, fy, fw, fh = 1050, 320, 770, 600
+    fx, fy, fw, fh = 1050, 320, 770, 570
     card(d, (fx, fy, fx + fw, fy + fh))
     d.text((fx + 34, fy + 30), "Mezo Testnet  ·  31611", font=f(SEMI, 22), fill=WHITE)
     d.line([(fx + 34, fy + 72), (fx + fw - 34, fy + 72)], fill=(255, 255, 255, 20), width=1)
@@ -558,7 +582,7 @@ def slide_mezo(total: int) -> Image.Image:
         d.text((fx + 34, y), k, font=f(MONO, 15), fill=DIM)
         d.text((fx + 300, y), v, font=f(MONO, 15), fill=WHITE)
     d.text(
-        (fx + 34, fy + fh - 46),
+        (fx + 34, fy + fh - 42),
         "Read live by scripts/mezo-live-check.ts",
         font=f(MONO, 12),
         fill=DIM,
@@ -604,7 +628,7 @@ def slide_compare(total: int) -> Image.Image:
     for i, head in enumerate(heads):
         cx = x + sum(widths[:i])
         if head:
-            d.text((cx + 18, y), head, font=f(SEMI, 18), fill=MUTED)
+            d.text((cx + 33, y), head, font=f(SEMI, 18), fill=MUTED, anchor="ma")
         else:
             d.text((cx, y), "Capability", font=f(MONO, 13), fill=DIM)
     d.line([(x, y + 40), (W - M, y + 40)], fill=(255, 255, 255, 24), width=1)

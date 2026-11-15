@@ -27,6 +27,20 @@ November 23.
 - Deposits, expense payments and withdrawals are verified ERC-20/native
   transfers on chain 31611.
 
+Read-only verification against the live chain (`bun run test:live`, 15 Nov 2026):
+
+```text
+chain: 31611
+block: 16786352
+MUSD: 0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503 (18)
+MEZO: 0x7B7c000000000000000000000000000000000001 (18)
+BTC/USD from Mezo PriceFeed: $63002.97
+MCR: 1.1; gas compensation: 200 MUSD
+Minimum net debt: 1800 MUSD
+BorrowerOperations: 0xCdF7028ceAB81fA0C6971208e83fa7872994beE5
+mezo live check: ok
+```
+
 ### Product & Business Viability — 30%
 
 - The product solves a concrete household problem: pay for family life and

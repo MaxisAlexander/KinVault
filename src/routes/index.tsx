@@ -17,6 +17,13 @@ import { usd } from "@/lib/format";
 // Served from public/media so the picture ships with the site wherever it is hosted.
 const HERO_IMAGE_PATH = "/media/kinvault-family-hero.jpg";
 
+const FOOTER_VAULT_LINKS = [
+  { to: "/dashboard", label: "Family dashboard" },
+  { to: "/spending", label: "Household spending" },
+  { to: "/loans", label: "Bitcoin-backed loans" },
+  { to: "/trust", label: "Generational trust" },
+] as const;
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -248,8 +255,87 @@ function Landing() {
         </Button>
       </section>
 
-      <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">
-        KinVault · Mezo Family Trust demo. Balances shown are sample data.
+      <footer className="border-t-4 border-primary bg-primary-deep text-primary-foreground">
+        <div className="mx-auto max-w-6xl px-4 pb-6 pt-14 sm:px-6 sm:pt-16">
+          <div className="grid gap-10 pb-12 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr] lg:gap-16">
+            <div className="sm:col-span-2 lg:col-span-1">
+              <Link
+                to="/"
+                aria-label="KinVault home"
+                className="inline-flex rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground"
+              >
+                <Logo />
+              </Link>
+              <p className="mt-5 max-w-sm text-2xl font-bold leading-snug sm:text-3xl">
+                One family.
+                <br />A future built together.
+              </p>
+              <p className="mt-4 max-w-sm text-sm leading-relaxed text-primary-foreground/75">
+                Bitcoin for tomorrow. MUSD for today.
+                <br />
+                Your household, connected through KinVault.
+              </p>
+              <div className="mt-6 inline-flex items-center gap-2 text-xs font-semibold text-primary-foreground/80">
+                <HeartHandshake className="h-4 w-4" aria-hidden="true" />
+                Mezo Family Trust
+              </div>
+            </div>
+
+            <nav aria-label="Footer vault navigation">
+              <h2 className="text-sm font-bold">Your family vault</h2>
+              <ul className="mt-5 space-y-3 text-sm text-primary-foreground/75">
+                {FOOTER_VAULT_LINKS.map((item) => (
+                  <li key={item.to}>
+                    <Link
+                      to={item.to}
+                      className="rounded-sm transition-colors hover:text-primary-foreground hover:underline hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground"
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+
+            <nav aria-label="Footer account navigation">
+              <h2 className="text-sm font-bold">Make it a family thing</h2>
+              <ul className="mt-5 space-y-3 text-sm text-primary-foreground/75">
+                <li>
+                  <Link
+                    to="/auth"
+                    search={{ mode: "signup", redirect: "/onboarding" }}
+                    className="rounded-sm hover:text-primary-foreground hover:underline hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground"
+                  >
+                    Create family vault
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/auth"
+                    search={{ mode: undefined, redirect: undefined }}
+                    className="rounded-sm hover:text-primary-foreground hover:underline hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground"
+                  >
+                    Sign in
+                  </Link>
+                </li>
+                <li className="pt-2">
+                  <Button asChild variant="mint" className="rounded-lg">
+                    <Link to="/dashboard">
+                      Try demo <ArrowRight aria-hidden="true" />
+                    </Link>
+                  </Button>
+                </li>
+              </ul>
+            </nav>
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-primary-foreground/20 pt-6 text-xs leading-relaxed text-primary-foreground/65 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+            <p>KinVault · Mezo Family Trust</p>
+            <p className="max-w-md sm:text-right">
+              Demo balances are sample data. Demo actions do not move real funds.
+            </p>
+          </div>
+        </div>
       </footer>
     </div>
   );

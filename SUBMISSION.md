@@ -9,7 +9,7 @@ November 23.
 | ------------------------ | ----------------------------------------------------- | ------------------------------- |
 | Live deployment link     | **DONE** — https://kinvault-six.vercel.app            | `README.md` → Live deployment   |
 | Public GitHub repository | **DONE** — https://github.com/MaxisAlexander/KinVault | `main` branch                   |
-| Pitch deck               | **TODO**                                              | Add `deck.pdf` or a hosted link |
+| Pitch deck               | **DONE** - 9 slides, 16:9 PDF                          | `docs/deck/kinvault-deck.pdf`   |
 | 2-minute demo video      | **DONE** — 2:19, 1080p, narrated                      | `docs/video/kinvault-demo.mp4`  |
 
 ## Rubric mapping
@@ -81,18 +81,28 @@ verification model it describes is the live path in `src/lib/chain/`.
 
 Script and rebuild notes: `docs/video/DEMO-SCRIPT.md`.
 
-## Suggested deck
+## Pitch deck
 
-1. Problem and who feels it.
-2. Product: one family vault, six seats, shared rules.
-3. Why Mezo: BTC collateral + MUSD without selling Bitcoin.
-4. Live demo screenshots and explorer evidence (`docs/screenshots/`).
-5. Architecture: browser → tx hash → server verification → ledger.
-6. Security: call decoding, event anchoring, replay protection, RLS.
-7. Business model: subscription or treasury fee; path to mainnet.
-8. Roadmap and team.
+`docs/deck/kinvault-deck.pdf` - 9 slides at 1920x1080, built by
+`docs/deck/make_deck.py`. Regenerate with:
 
-Screenshots ready to drop into the deck:
+```bash
+python docs/deck/make_deck.py
+```
+
+| # | Slide | Argument |
+| - | ----- | -------- |
+| 1 | Title | KinVault: the family vault for Bitcoin and MUSD |
+| 2 | Problem | Bitcoin is the family savings, but life keeps asking for cash |
+| 3 | Product | One vault, six seats, rules everyone agreed on |
+| 4 | Walkthrough | Every household flow in one place (real screenshots) |
+| 5 | Mezo | Bitcoin stays, MUSD does the work - trove mechanics |
+| 6 | Security | Browser signs, server verifies, ledger follows |
+| 7 | Comparison | A joint account can't hold Bitcoin; an exchange can't raise a family |
+| 8 | Business | Small recurring revenue, aligned with families |
+| 9 | Roadmap | Testnet today, vault contract and mainnet next |
+
+Screenshots used in the deck and the submission form:
 
 | File                                | Page                   |
 | ----------------------------------- | ---------------------- |

@@ -160,14 +160,22 @@ def arch() -> None:
         ("min net debt", "1,800 MUSD", None),
         ("BorrowerOps", "0xCdF7…beE5", None),
         ("", "", None),
-        ("✓ mezo live check: ok", GREEN, True),
+        ("mezo live check: ok", GREEN, True),
     ]
     ry = ty + 68
     for key, value, special in rows:
         if not key and not value:
             ry += 10
             continue
-        if special:
+        if key == "mezo live check: ok":
+            d.line(
+                [(tx + 26, ry + 7), (tx + 31, ry + 12), (tx + 40, ry + 1)],
+                fill=GREEN,
+                width=2,
+                joint="curve",
+            )
+            d.text((tx + 48, ry), key, font=font(MONO_B, 14), fill=value)
+        elif special:
             d.text((tx + 26, ry), key, font=font(MONO_B, 14), fill=value)
         else:
             d.text((tx + 26, ry), key, font=font(MONO, 13), fill=DIM)
@@ -185,7 +193,12 @@ def arch() -> None:
     by = 804
     d.rounded_rectangle([(56, by), (W - 56, by + 44)], radius=12, fill=(13, 46, 34))
     d.ellipse([(76, by + 15), (90, by + 29)], fill=GREEN)
-    d.text((82, by + 22), "✓", font=font(BOLD, 11), fill=(6, 20, 15), anchor="mm")
+    d.line(
+        [(78, by + 22), (81, by + 26), (88, by + 18)],
+        fill=(6, 20, 15),
+        width=2,
+        joint="curve",
+    )
     d.text(
         (104, by + 12),
         "Live mode refuses any action it cannot verify on chain.",

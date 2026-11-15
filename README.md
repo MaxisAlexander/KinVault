@@ -329,6 +329,9 @@ production deployment. `vercel.json` selects Nitro's Vercel preset.
 The submission also requires a public GitHub repository, a pitch deck and a
 2-minute demo video. `SUBMISSION.md` tracks those items.
 
+- **Pitch deck:** `docs/deck/kinvault-deck.pdf` (9 slides, 16:9)
+- **Demo video:** `docs/video/kinvault-demo.mp4` (2:19, 1080p, narrated)
+
 ---
 
 ## Roadmap

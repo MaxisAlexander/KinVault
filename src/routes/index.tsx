@@ -150,6 +150,7 @@ function Landing() {
   });
   const shownName = live.data?.family.name ?? familyName;
   const shownVault = live.data?.ledger.vault ?? vault;
+  const shownMembers = live.data?.ledger.members ?? members;
 
   function openDemo() {
     setDemoPreference(true);
@@ -255,7 +256,7 @@ function Landing() {
 
               <div className="mt-8 grid max-w-md grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-2xl border border-border bg-card px-4 py-4 shadow-soft sm:px-5">
                 <div className="flex min-w-0 -space-x-2">
-                  {members.map((m) => (
+                  {shownMembers.map((m) => (
                     <MemberAvatar key={m.id} member={m} size="sm" />
                   ))}
                 </div>

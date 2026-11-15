@@ -119,6 +119,7 @@ function HeroDivider() {
 function Landing() {
   const members = useVault((s) => s.members);
   const vault = useVault((s) => s.vault);
+  const familyName = useVault((s) => s.familyName);
   const price = useVault((s) => s.btcPrice);
 
   return (
@@ -170,12 +171,12 @@ function Landing() {
               </p>
               <div className="mt-8 flex flex-col gap-3 min-[460px]:flex-row min-[460px]:flex-wrap min-[460px]:items-center">
                 <Button asChild size="xl">
-                  <Link to="/dashboard">
-                    Try demo <ArrowRight />
+                  <Link to="/auth" search={{ mode: "signup", redirect: "/onboarding" }}>
+                    Create family vault <ArrowRight />
                   </Link>
                 </Button>
                 <Button asChild size="xl" variant="outline">
-                  <Link to="/trust">See the Generational Trust</Link>
+                  <Link to="/dashboard">See demo family</Link>
                 </Button>
               </div>
 
@@ -187,7 +188,7 @@ function Landing() {
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-semibold text-muted-foreground">
-                    The Rivera family treasury
+                    The {familyName} family treasury
                   </p>
                   <p className="text-xl font-extrabold tabular">
                     {usd(vault.btc * price + vault.musd, { round: true })}

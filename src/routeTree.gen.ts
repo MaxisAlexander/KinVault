@@ -14,8 +14,10 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LoansRouteImport } from './routes/loans'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SpendingRouteImport } from './routes/spending'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TrustRouteImport } from './routes/trust'
 import { Route as AuthenticatedFamilyRouteImport } from './routes/_authenticated/family'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
@@ -44,6 +46,11 @@ const LoansRoute = LoansRouteImport.update({
   path: '/loans',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -52,6 +59,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const SpendingRoute = SpendingRouteImport.update({
   id: '/spending',
   path: '/spending',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TrustRoute = TrustRouteImport.update({
@@ -75,8 +87,10 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/loans': typeof LoansRoute
+  '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/spending': typeof SpendingRoute
+  '/terms': typeof TermsRoute
   '/trust': typeof TrustRoute
   '/family': typeof AuthenticatedFamilyRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
@@ -86,8 +100,10 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/loans': typeof LoansRoute
+  '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/spending': typeof SpendingRoute
+  '/terms': typeof TermsRoute
   '/trust': typeof TrustRoute
   '/family': typeof AuthenticatedFamilyRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
@@ -99,8 +115,10 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/loans': typeof LoansRoute
+  '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/spending': typeof SpendingRoute
+  '/terms': typeof TermsRoute
   '/trust': typeof TrustRoute
   '/_authenticated/family': typeof AuthenticatedFamilyRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
@@ -112,8 +130,10 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/loans'
+    | '/privacy'
     | '/reset-password'
     | '/spending'
+    | '/terms'
     | '/trust'
     | '/family'
     | '/onboarding'
@@ -123,8 +143,10 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/loans'
+    | '/privacy'
     | '/reset-password'
     | '/spending'
+    | '/terms'
     | '/trust'
     | '/family'
     | '/onboarding'
@@ -135,8 +157,10 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/loans'
+    | '/privacy'
     | '/reset-password'
     | '/spending'
+    | '/terms'
     | '/trust'
     | '/_authenticated/family'
     | '/_authenticated/onboarding'
@@ -148,8 +172,10 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   DashboardRoute: typeof DashboardRoute
   LoansRoute: typeof LoansRoute
+  PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SpendingRoute: typeof SpendingRoute
+  TermsRoute: typeof TermsRoute
   TrustRoute: typeof TrustRoute
 }
 
@@ -190,6 +216,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoansRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reset-password': {
       id: '/reset-password'
       path: '/reset-password'
@@ -202,6 +235,13 @@ declare module '@tanstack/react-router' {
       path: '/spending'
       fullPath: '/spending'
       preLoaderRoute: typeof SpendingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/trust': {
@@ -247,8 +287,10 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   DashboardRoute: DashboardRoute,
   LoansRoute: LoansRoute,
+  PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SpendingRoute: SpendingRoute,
+  TermsRoute: TermsRoute,
   TrustRoute: TrustRoute,
 }
 export const routeTree = rootRouteImport

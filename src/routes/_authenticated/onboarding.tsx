@@ -142,6 +142,10 @@ function CreateForm() {
           placeholder="The Rivera Family"
           className="h-11 rounded-xl"
         />
+        <p className="text-xs text-muted-foreground">
+          What the household is called on the dashboard, receipts and invite codes — for example
+          &ldquo;The Rivera Family&rdquo;. Up to 60 characters.
+        </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
         <div className="space-y-2">
@@ -152,8 +156,12 @@ function CreateForm() {
             maxLength={40}
             value={me.name}
             onChange={(e) => setMe({ ...me, name: e.target.value })}
+            placeholder="e.g. Ana Rivera"
             className="h-11 rounded-xl"
           />
+          <p className="text-xs text-muted-foreground">
+            The seat you claim. As Admin you manage members, roles and invites.
+          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="meage">Age</Label>
@@ -165,8 +173,10 @@ function CreateForm() {
             max={120}
             value={me.age}
             onChange={(e) => setMe({ ...me, age: e.target.value })}
+            placeholder="41"
             className="h-11 rounded-xl"
           />
+          <p className="text-xs text-muted-foreground">18 or over.</p>
         </div>
       </div>
 
@@ -186,14 +196,33 @@ function CreateForm() {
           </Button>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Each member gets a private invite code to claim their seat.
+          You plus up to five others. Each one gets a private invite code to claim their seat —
+          leave a row blank to skip that seat for now.
         </p>
+        <dl className="mt-3 grid gap-x-6 gap-y-1.5 rounded-xl bg-muted/50 p-3 text-xs text-muted-foreground sm:grid-cols-2">
+          <div className="flex gap-1.5">
+            <dt className="font-semibold text-foreground">Admin</dt>
+            <dd>approves spends, manages seats and invites</dd>
+          </div>
+          <div className="flex gap-1.5">
+            <dt className="font-semibold text-foreground">Spouse</dt>
+            <dd>approves spends and loan requests</dd>
+          </div>
+          <div className="flex gap-1.5">
+            <dt className="font-semibold text-foreground">Teen</dt>
+            <dd>$50/day, more needs 2 approvals</dd>
+          </div>
+          <div className="flex gap-1.5">
+            <dt className="font-semibold text-foreground">Kid</dt>
+            <dd>$15/day, School and Groceries only</dd>
+          </div>
+        </dl>
         <div className="mt-4 space-y-3">
           {members.map((m, i) => (
             <div key={i} className="grid grid-cols-[1fr_110px_80px_40px] gap-2">
               <Input
                 aria-label="Name"
-                placeholder="Name"
+                placeholder="e.g. Luis Rivera"
                 maxLength={40}
                 value={m.name}
                 onChange={(e) =>
@@ -219,7 +248,7 @@ function CreateForm() {
               </select>
               <Input
                 aria-label="Age"
-                placeholder="Age"
+                placeholder="12"
                 type="number"
                 min={0}
                 max={120}
@@ -242,6 +271,12 @@ function CreateForm() {
           ))}
         </div>
       </div>
+
+      <p className="rounded-xl border border-border bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
+        <span className="font-semibold text-foreground">What happens next:</span> you land on your
+        family dashboard with an empty ledger. Fund it with test BTC or MUSD there, and share each
+        invite code from the Family page when someone is ready to claim their seat.
+      </p>
 
       <Button type="submit" size="lg" className="w-full" disabled={busy}>
         {busy && <Loader2 className="animate-spin" />} Create family vault

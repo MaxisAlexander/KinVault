@@ -31,7 +31,34 @@ const GOOGLE_G = (
   </svg>
 );
 
+/**
+ * Not every deployment has the Google provider configured. Asking the project
+ * first turns a dead-end redirect into a clear message.
+ */
+let googleProvider: boolean | undefined;
+
+async function googleAvailable(): Promise<boolean> {
+  if (googleProvider !== undefined) return googleProvider;
+  try {
+    const url = import.meta.env["VITE_SUPABASE_URL"] || process.env["SUPABASE_URL"];
+    const key =
+      import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] || process.env["SUPABASE_PUBLISHABLE_KEY"];
+    const res = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: key } });
+    const body = (await res.json()) as { external?: { google?: boolean } };
+    googleProvider = Boolean(body.external?.google);
+  } catch {
+    googleProvider = false;
+  }
+  return googleProvider;
+}
+
 async function googleSignIn(onDone: () => void) {
+  if (!(await googleAvailable())) {
+    toast.info("Google sign-in isn't enabled on this deployment", {
+      description: "Use your email and password, or a wallet — both work on Mezo Testnet.",
+    });
+    return;
+  }
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo: window.location.origin + "/auth" },

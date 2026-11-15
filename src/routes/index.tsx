@@ -1,4 +1,6 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowRight,
   HeartHandshake,
@@ -9,10 +11,14 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Logo } from "@/components/vault/logo";
 import { MemberAvatar, Pill } from "@/components/vault/member-avatar";
-import { useVault } from "@/lib/vault-store";
+import { setDemoPreference, useAuthUser, vaultQueryKey } from "@/components/vault/vault-session";
+import { getMyVault } from "@/lib/family.functions";
 import { usd } from "@/lib/format";
+import { useVault } from "@/lib/vault-store";
+
 // Served from public/media so the picture ships with the site wherever it is hosted.
 const HERO_IMAGE_PATH = "/media/kinvault-family-hero.jpg";
 
@@ -22,6 +28,15 @@ const FOOTER_VAULT_LINKS = [
   { to: "/loans", label: "Bitcoin-backed loans" },
   { to: "/trust", label: "Generational trust" },
 ] as const;
+
+/** "Rivera" -> "The Rivera family treasury"; "The Perera Family" -> "The Perera Family treasury". */
+function treasuryLabel(familyName: string) {
+  const name = familyName.trim();
+  if (!name) return "Family treasury";
+  if (/^the\b/i.test(name)) return `${name} treasury`;
+  const base = name.replace(/\s+family$/i, "").trim() || name;
+  return `The ${base} family treasury`;
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -121,6 +136,25 @@ function Landing() {
   const vault = useVault((s) => s.vault);
   const familyName = useVault((s) => s.familyName);
   const price = useVault((s) => s.btcPrice);
+  const auth = useAuthUser();
+  const navigate = useNavigate();
+  const fetchVault = useServerFn(getMyVault);
+
+  // A signed-in visitor sees their own family name and totals in the hero card,
+  // even on a hard load of the landing page where the in-memory store is empty.
+  const live = useQuery({
+    queryKey: vaultQueryKey,
+    queryFn: () => fetchVault(),
+    enabled: auth.ready && auth.signedIn,
+    staleTime: 15_000,
+  });
+  const shownName = live.data?.family.name ?? familyName;
+  const shownVault = live.data?.ledger.vault ?? vault;
+
+  function openDemo() {
+    setDemoPreference(true);
+    void navigate({ to: "/dashboard" });
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -143,17 +177,41 @@ function Landing() {
           </Link>
         </nav>
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <Button asChild variant="ghost" className="rounded-xl px-3 sm:px-4">
-            <Link to="/auth" search={{ mode: undefined, redirect: undefined }}>
-              Sign in
-            </Link>
-          </Button>
-          <Button asChild className="rounded-xl px-3 sm:px-4">
-            <Link to="/auth" search={{ mode: "signup", redirect: "/onboarding" }}>
-              <span className="sm:hidden">Get started</span>
-              <span className="hidden sm:inline">Create family vault</span>
-            </Link>
-          </Button>
+          {!auth.ready ? (
+            <Skeleton className="h-11 w-40 rounded-xl" />
+          ) : auth.signedIn ? (
+            <>
+              <span
+                title={auth.email ?? "Signed in"}
+                className="hidden max-w-[22ch] items-center gap-2 rounded-full border border-border bg-card py-1 pl-1 pr-3 text-xs font-semibold sm:flex"
+              >
+                <span
+                  aria-hidden="true"
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-[11px] font-bold uppercase text-primary-foreground"
+                >
+                  {(auth.email ?? "K").slice(0, 2)}
+                </span>
+                <span className="truncate">{auth.email ?? "Signed in"}</span>
+              </span>
+              <Button asChild className="rounded-xl px-3 sm:px-4">
+                <Link to="/dashboard">Open dashboard</Link>
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button asChild variant="ghost" className="rounded-xl px-3 sm:px-4">
+                <Link to="/auth" search={{ mode: undefined, redirect: undefined }}>
+                  Sign in
+                </Link>
+              </Button>
+              <Button asChild className="rounded-xl px-3 sm:px-4">
+                <Link to="/auth" search={{ mode: "signup", redirect: "/onboarding" }}>
+                  <span className="sm:hidden">Get started</span>
+                  <span className="hidden sm:inline">Create family vault</span>
+                </Link>
+              </Button>
+            </>
+          )}
         </div>
       </header>
 
@@ -170,14 +228,29 @@ function Landing() {
                 without selling, and lock away savings for the moments that matter.
               </p>
               <div className="mt-8 flex flex-col gap-3 min-[460px]:flex-row min-[460px]:flex-wrap min-[460px]:items-center">
-                <Button asChild size="xl">
-                  <Link to="/auth" search={{ mode: "signup", redirect: "/onboarding" }}>
-                    Create family vault <ArrowRight />
-                  </Link>
-                </Button>
-                <Button asChild size="xl" variant="outline">
-                  <Link to="/dashboard">See demo family</Link>
-                </Button>
+                {auth.ready && auth.signedIn ? (
+                  <>
+                    <Button asChild size="xl">
+                      <Link to="/dashboard">
+                        Open family dashboard <ArrowRight />
+                      </Link>
+                    </Button>
+                    <Button size="xl" variant="outline" onClick={openDemo}>
+                      See demo family
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button asChild size="xl">
+                      <Link to="/auth" search={{ mode: "signup", redirect: "/onboarding" }}>
+                        Create family vault <ArrowRight />
+                      </Link>
+                    </Button>
+                    <Button asChild size="xl" variant="outline">
+                      <Link to="/dashboard">See demo family</Link>
+                    </Button>
+                  </>
+                )}
               </div>
 
               <div className="mt-8 grid max-w-md grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-2xl border border-border bg-card px-4 py-4 shadow-soft sm:px-5">
@@ -188,10 +261,10 @@ function Landing() {
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-semibold text-muted-foreground">
-                    The {familyName} family treasury
+                    {treasuryLabel(shownName)}
                   </p>
                   <p className="text-xl font-extrabold tabular">
-                    {usd(vault.btc * price + vault.musd, { round: true })}
+                    {usd(shownVault.btc * price + shownVault.musd, { round: true })}
                   </p>
                 </div>
               </div>
@@ -298,29 +371,45 @@ function Landing() {
             <nav aria-label="Footer account navigation">
               <h2 className="text-sm font-bold">Make it a family thing</h2>
               <ul className="mt-5 space-y-3 text-sm text-primary-foreground/75">
-                <li>
-                  <Link
-                    to="/auth"
-                    search={{ mode: "signup", redirect: "/onboarding" }}
-                    className="rounded-sm hover:text-primary-foreground hover:underline hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground"
-                  >
-                    Create family vault
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/auth"
-                    search={{ mode: undefined, redirect: undefined }}
-                    className="rounded-sm hover:text-primary-foreground hover:underline hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground"
-                  >
-                    Sign in
-                  </Link>
-                </li>
+                {auth.ready && auth.signedIn ? (
+                  <>
+                    <li>
+                      <Link
+                        to="/dashboard"
+                        className="rounded-sm hover:text-primary-foreground hover:underline hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground"
+                      >
+                        Open my dashboard
+                      </Link>
+                    </li>
+                    <li className="break-all text-xs text-primary-foreground/60">
+                      Signed in as {auth.email ?? "your account"}
+                    </li>
+                  </>
+                ) : (
+                  <>
+                    <li>
+                      <Link
+                        to="/auth"
+                        search={{ mode: "signup", redirect: "/onboarding" }}
+                        className="rounded-sm hover:text-primary-foreground hover:underline hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground"
+                      >
+                        Create family vault
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to="/auth"
+                        search={{ mode: undefined, redirect: undefined }}
+                        className="rounded-sm hover:text-primary-foreground hover:underline hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground"
+                      >
+                        Sign in
+                      </Link>
+                    </li>
+                  </>
+                )}
                 <li className="pt-2">
-                  <Button asChild variant="mint" className="rounded-lg">
-                    <Link to="/dashboard">
-                      Try demo <ArrowRight aria-hidden="true" />
-                    </Link>
+                  <Button variant="mint" className="rounded-lg" onClick={openDemo}>
+                    Try demo <ArrowRight aria-hidden="true" />
                   </Button>
                 </li>
               </ul>

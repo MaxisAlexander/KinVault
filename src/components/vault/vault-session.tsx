@@ -22,6 +22,41 @@ export const vaultQueryKey = ["my-vault"] as const;
 export type SessionStatus = "resolving" | "demo" | "live";
 
 /**
+ * Auth state for public pages (landing, legal) that must not load a family vault.
+ * Works for every sign-in route: email, Google and wallet all end in a Supabase session.
+ */
+export function useAuthUser(): { ready: boolean; signedIn: boolean; email: string | null } {
+  const [state, setState] = useState<{
+    ready: boolean;
+    signedIn: boolean;
+    email: string | null;
+  }>({ ready: false, signedIn: false, email: null });
+
+  useEffect(() => {
+    let alive = true;
+    const read = () =>
+      supabase.auth.getSession().then(({ data }) => {
+        if (!alive) return;
+        setState({
+          ready: true,
+          signedIn: Boolean(data.session),
+          email: data.session?.user.email ?? null,
+        });
+      });
+    void read();
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") void read();
+    });
+    return () => {
+      alive = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  return state;
+}
+
+/**
  * Decides whether the vault pages show the signed-in family (saved in Supabase)
  * or the sample demo family, and keeps the live family in sync.
  */

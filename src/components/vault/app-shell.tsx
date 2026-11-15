@@ -36,7 +36,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { buildWalletLinkMessage } from "@/lib/chain/wallet-link";
 import { linkWallet as linkWalletServer } from "@/lib/family.functions";
-import { usd } from "@/lib/format";
+import { accountLabel, usd } from "@/lib/format";
 import { getWalletState, signMessage } from "@/lib/wallet";
 import { REQUIRED_UNFREEZE_SIGNATURES, canFreeze } from "@/lib/vault-logic";
 import { actions, memberById, useVault } from "@/lib/vault-store";
@@ -311,7 +311,7 @@ function AccountMenu({ email }: { email: string | null }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60 rounded-xl">
         <DropdownMenuLabel className="truncate text-xs font-medium text-muted-foreground">
-          {email}
+          {accountLabel(email)}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => navigate({ to: "/family" })}>

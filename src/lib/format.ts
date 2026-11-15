@@ -41,3 +41,16 @@ export function shortDateTime(iso: string) {
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()} · ${h12}:${m} ${h < 12 ? "AM" : "PM"}`;
 }
+
+const WALLET_ACCOUNT = /^(0x[0-9a-fA-F]{40})@wallet\.kinvault\.invalid$/;
+
+/**
+ * Human label for the signed-in account. Wallet sign-ins have no email, so the
+ * synthetic address Supabase holds for them is shown as a short 0x address instead.
+ */
+export function accountLabel(email: string | null | undefined) {
+  if (!email) return "Signed in";
+  const wallet = WALLET_ACCOUNT.exec(email);
+  if (wallet) return `${wallet[1]!.slice(0, 6)}.${wallet[1]!.slice(-4)}`;
+  return email;
+}

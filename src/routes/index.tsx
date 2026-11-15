@@ -16,7 +16,7 @@ import { Logo } from "@/components/vault/logo";
 import { MemberAvatar, Pill } from "@/components/vault/member-avatar";
 import { setDemoPreference, useAuthUser, vaultQueryKey } from "@/components/vault/vault-session";
 import { getMyVault } from "@/lib/family.functions";
-import { usd } from "@/lib/format";
+import { accountLabel, usd } from "@/lib/format";
 import { useVault } from "@/lib/vault-store";
 
 // Served from public/media so the picture ships with the site wherever it is hosted.
@@ -183,16 +183,16 @@ function Landing() {
           ) : auth.signedIn ? (
             <>
               <span
-                title={auth.email ?? "Signed in"}
+                title={accountLabel(auth.email)}
                 className="hidden max-w-[22ch] items-center gap-2 rounded-full border border-border bg-card py-1 pl-1 pr-3 text-xs font-semibold sm:flex"
               >
                 <span
                   aria-hidden="true"
                   className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-[11px] font-bold uppercase text-primary-foreground"
                 >
-                  {(auth.email ?? "K").slice(0, 2)}
+                  {accountLabel(auth.email).replace(/^0x/i, "").slice(0, 2)}
                 </span>
-                <span className="truncate">{auth.email ?? "Signed in"}</span>
+                <span className="truncate">{accountLabel(auth.email)}</span>
               </span>
               <Button asChild className="rounded-xl px-3 sm:px-4">
                 <Link to="/dashboard">Open dashboard</Link>
@@ -383,7 +383,7 @@ function Landing() {
                       </Link>
                     </li>
                     <li className="break-all text-xs text-primary-foreground/60">
-                      Signed in as {auth.email ?? "your account"}
+                      Signed in as {accountLabel(auth.email)}
                     </li>
                   </>
                 ) : (

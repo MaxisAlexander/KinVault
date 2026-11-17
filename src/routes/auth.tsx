@@ -58,6 +58,7 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState<null | "confirm" | "reset">(null);
+  const [resending, setResending] = useState(false);
 
   const target = safeRedirect(search.redirect);
 
@@ -78,6 +79,23 @@ function AuthPage() {
     return () => sub.subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function resend() {
+    setResending(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: email.trim(),
+        options: { emailRedirectTo: `${window.location.origin}${target}` },
+      });
+      if (error) throw error;
+      toast.success("Confirmation email sent again");
+    } catch (err) {
+      toastError(err, "Couldn't resend the email");
+    } finally {
+      setResending(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -108,6 +126,21 @@ function AuthPage() {
           },
         });
         if (error) throw error;
+        // Supabase hides whether an address is taken by returning a user with no
+        // identities. Showing "check your email" then is a dead end, so say it.
+        if (data.user && (data.user.identities?.length ?? 0) === 0) {
+          toast.error("That email already has an account", {
+            description: "Sign in instead, or reset your password.",
+          });
+          setMode("signin");
+          return;
+        }
+        if (!data.user) {
+          toast.error("We couldn't create your account", {
+            description: "Nothing was saved. Try again in a moment.",
+          });
+          return;
+        }
         if (!data.session) setSent("confirm");
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(em.data, {
@@ -151,16 +184,30 @@ function AuthPage() {
                   ? `We sent a confirmation link to ${email}. Open it to finish creating your account, then set up your family.`
                   : `If an account exists for ${email}, a password reset link is on its way.`}
               </p>
-              <Button
-                variant="ghost"
-                className="mt-6"
-                onClick={() => {
-                  setSent(null);
-                  setMode("signin");
-                }}
-              >
-                Back to sign in
-              </Button>
+              {sent === "confirm" && (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Not there after a minute? Check spam, then resend it — or use{" "}
+                  <b className="text-foreground">Continue with Google</b> and skip the email
+                  entirely.
+                </p>
+              )}
+              <div className="mt-6 flex flex-col items-center gap-2">
+                {sent === "confirm" && (
+                  <Button variant="outline" disabled={resending} onClick={() => void resend()}>
+                    {resending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Resend email
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setSent(null);
+                    setMode("signin");
+                  }}
+                >
+                  Back to sign in
+                </Button>
+              </div>
             </div>
           ) : (
             <>

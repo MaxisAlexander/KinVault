@@ -4,8 +4,9 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-import { DEMO_MERCHANT_ADDRESS, MUSD } from "./chain/config";
+import { DEMO_MERCHANT_ADDRESS, MUSD, TOKENS } from "./chain/config";
 import { assertNotSelfTransfer } from "./chain/guards";
+import { meetsMezoParticipation } from "./chain/participation";
 import { vaultActionSchema, type Ledger, type VaultAction } from "./vault-engine";
 import type { VaultPayload } from "./vault-store";
 
@@ -725,6 +726,16 @@ export const confirmTroveOpen = createServerFn({ method: "POST" })
     }
 
     const protocol = await client.readProtocolParams();
+    // KinVault participation policy: the treasury must hold at least 1 MEZO to
+    // borrow through KinVault. The browser checks before signing; this is the
+    // server backstop so the policy cannot be bypassed by a crafted request.
+    const mezoWei = await client.readTokenBalance(
+      TOKENS.MEZO.address,
+      fam.treasury_address as `0x${string}`,
+    );
+    if (!meetsMezoParticipation(mezoWei)) {
+      throw new Error("The treasury needs at least 1 MEZO before KinVault records a borrow");
+    }
     // The browser sends only the tx hash. Collateral, principal and debt are
     // read from the decoded openTrove call and its TroveUpdated event.
     const verified = await verify.verifyTroveOpened({

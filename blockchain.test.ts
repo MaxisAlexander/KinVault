@@ -162,8 +162,11 @@ function troveClient(params: {
   input: `0x${string}`;
   logs: Array<ReturnType<typeof troveUpdatedLog> | ReturnType<typeof transferLog>>;
   status?: bigint;
+  headBlock?: bigint;
 }): VerifyClient {
   return fakeClient({
+    // Trove verification requires 3 confirmations; receipt is at block 100.
+    getBlockNumber: async () => params.headBlock ?? 102n,
     getTransaction: async () => ({
       to: PROTOCOL.borrowerOperations,
       from: params.owner,
@@ -467,6 +470,30 @@ describe("server-side transaction verification", () => {
     expect(result.debtWei).toBe(debtWei);
     // The principal is the call argument, not derived from current trove state.
     expect(result.principalWei).toBe(principalWei);
+    expect(result.confirmations).toBe(3);
+  });
+
+  it("waits for 3 confirmations before verifying a trove open", async () => {
+    const collateralWei = 100_000_000_000_000_000n;
+    await expect(
+      verifyTroveOpened(
+        { txHash: HASH, owner: TO, minCollateralWei: 0n, minDebtWei: 0n },
+        troveClient({
+          owner: TO,
+          value: collateralWei,
+          input: openTroveInput(2_000n * E18),
+          logs: [
+            troveUpdatedLog({
+              owner: TO,
+              principal: 2_200n * E18,
+              coll: collateralWei,
+              operation: 0,
+            }),
+          ],
+          headBlock: 101n,
+        }),
+      ),
+    ).rejects.toThrow("Waiting for 3 confirmation(s)");
   });
 
   it("rejects a trove transaction that did not call openTrove", async () => {

@@ -16,11 +16,14 @@ import {
   publicClient,
   readBtcPrice,
   readProtocolParams,
+  readTokenBalance,
   readTrove,
   readTroveHints,
 } from "./client";
+import { meetsMezoParticipation } from "./participation";
 import {
   MUSD,
+  TOKENS,
   PROTOCOL,
   MEZO_TESTNET_CHAIN_ID,
   MEZO_TESTNET_HEX_CHAIN_ID,
@@ -148,6 +151,15 @@ export async function openTrove(params: {
 }): Promise<TxResult & { plan: ReturnType<typeof planTrove> }> {
   await ensureMezoTestnet(params.provider);
   const account = await requestAccount(params.provider);
+  // KinVault participation policy (not a Mezo protocol rule): the treasury must
+  // hold at least 1 MEZO to borrow through KinVault. Checked before signing so a
+  // family never opens a trove the ledger would then refuse to record.
+  const mezoWei = await readTokenBalance(TOKENS.MEZO.address, account);
+  if (!meetsMezoParticipation(mezoWei)) {
+    throw new Error(
+      "Hold at least 1 MEZO in the treasury wallet to borrow through KinVault — get test MEZO from the Mezo faucet",
+    );
+  }
   const [price, protocol] = await Promise.all([readBtcPrice(), readProtocolParams()]);
   const plan = planTrove({
     collateralBtc: params.collateralBtc,

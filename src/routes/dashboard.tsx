@@ -180,9 +180,9 @@ function Dashboard() {
           />
         ) : (
           <Stat
-            label="Yield earned"
+            label="Simulated yield · demo only"
             value={usd(vault.yieldEarned)}
-            sub={`${(MUSD_SAVINGS_APY * 100).toFixed(1)}% APY on ${usd(vault.musd, { round: true })} idle MUSD`}
+            sub={`Simulated ${(MUSD_SAVINGS_APY * 100).toFixed(1)}% APY for the demo — Mezo does not pay this yield`}
             icon={Sparkles}
             live
           />

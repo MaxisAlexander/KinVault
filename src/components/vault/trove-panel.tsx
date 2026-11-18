@@ -12,11 +12,13 @@ import { FundVaultDialog } from "@/components/vault/onchain-dialogs";
 import {
   readBtcPrice,
   readProtocolParams,
+  readTokenBalance,
   readTrove,
   type ProtocolParams,
   type TroveState,
 } from "@/lib/chain/client";
-import { MUSD, explorerAddressUrl, shortAddress } from "@/lib/chain/config";
+import { MUSD, TOKENS, explorerAddressUrl, shortAddress } from "@/lib/chain/config";
+import { meetsMezoParticipation } from "@/lib/chain/participation";
 import { toastError } from "@/lib/errors";
 import { summarizeTrove, type TroveSummary } from "@/lib/chain/protocol";
 import { getInjectedProvider, openTrove, repayTrove } from "@/lib/chain/transactions";
@@ -29,6 +31,8 @@ type Snapshot = {
   priceRaw: bigint;
   params: ProtocolParams;
   trove: TroveState;
+  /** Treasury MEZO balance, for KinVault's participation policy. */
+  mezoWei: bigint;
 };
 
 function formatNum(n: number, digits = 2) {
@@ -66,15 +70,16 @@ export function TrovePanel() {
     setLoading(true);
     setError(null);
     try {
-      const [price, params, trove] = await Promise.all([
+      const [price, params, trove, mezoWei] = await Promise.all([
         readBtcPrice(),
         readProtocolParams(),
         readTrove(treasury as `0x${string}`),
+        readTokenBalance(TOKENS.MEZO.address, treasury as `0x${string}`),
       ]);
       const withPrice = trove.active
         ? await readTrove(treasury as `0x${string}`, price.raw)
         : trove;
-      setSnapshot({ priceUsd: price.usd, priceRaw: price.raw, params, trove: withPrice });
+      setSnapshot({ priceUsd: price.usd, priceRaw: price.raw, params, trove: withPrice, mezoWei });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not read the Mezo protocol");
     } finally {
@@ -120,6 +125,7 @@ export function TrovePanel() {
     ? summarizeTrove(snapshot.trove, snapshot.priceUsd)
     : null;
   const connected = wallet.address?.toLowerCase() === treasury.toLowerCase();
+  const mezoOk = snapshot ? meetsMezoParticipation(snapshot.mezoWei) : false;
 
   async function open() {
     if (!treasury) return;
@@ -224,11 +230,15 @@ export function TrovePanel() {
         </p>
       ) : (
         <div className="space-y-5">
-          <div className="grid gap-3 sm:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <Metric label="BTC price (PriceFeed)" value={`$${formatNum(snapshot.priceUsd)}`} />
             <Metric label="Collateral" value={`${formatNum(summary?.collateralBtc ?? 0, 6)} BTC`} />
             <Metric label="Debt" value={`${formatNum(summary?.debtMusd ?? 0)} MUSD`} />
             <Metric label="Health" value={summary?.active ? formatNum(summary.health) : "—"} />
+            <Metric
+              label="MEZO held by treasury"
+              value={`${formatNum(Number(snapshot.mezoWei) / 1e18, 2)} MEZO`}
+            />
           </div>
 
           {summary?.active ? (
@@ -279,6 +289,7 @@ export function TrovePanel() {
                 Repaying the full debt calls <span className="font-mono">closeTrove()</span> and
                 unlocks the collateral. Partial repayments must leave at least{" "}
                 {formatNum(Number(snapshot.params.minNetDebt) / 1e18, 0)} MUSD of net debt.
+                Repayments are recorded after 3 confirmations.
               </p>
             </>
           ) : (
@@ -307,15 +318,22 @@ export function TrovePanel() {
                   />
                 </div>
               </div>
-              <Button onClick={() => void open()} disabled={busy || !connected}>
+              <Button onClick={() => void open()} disabled={busy || !connected || !mezoOk}>
                 {busy ? <Loader2 className="animate-spin" /> : <Landmark />} Open trove on Mezo
                 Testnet
               </Button>
+              {!mezoOk && (
+                <p className="text-xs text-warning">
+                  KinVault policy (not a Mezo protocol rule): the treasury must hold at least 1 MEZO
+                  to borrow through KinVault. Get test MEZO from the Mezo faucet, then refresh.
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">
                 Mezo requires at least {formatNum(Number(snapshot.params.minNetDebt) / 1e18, 0)}{" "}
                 MUSD of net debt, plus{" "}
                 {formatNum(Number(snapshot.params.gasCompensation) / 1e18, 0)} MUSD of gas
-                compensation added to the trove's debt.
+                compensation added to the trove's debt. Trove opens are recorded after 3
+                confirmations.
               </p>
               {!connected && (
                 <p className="text-xs text-warning">

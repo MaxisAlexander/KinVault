@@ -147,6 +147,8 @@ function Spending() {
             <p className="text-sm text-muted-foreground">
               Two admins or spouses (not the person asking) sign off before the{" "}
               {isLive ? "treasury sends MUSD on chain" : "vault pays"}.
+              {isLive &&
+                " Approvals are enforced by KinVault's server ledger, not by the chain — the treasury is a single wallet (see the README's known limitations)."}
             </p>
           </div>
         </div>

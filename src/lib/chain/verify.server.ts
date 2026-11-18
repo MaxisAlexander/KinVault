@@ -17,6 +17,7 @@ import {
   MUSD,
   MEZO_TESTNET_CHAIN_ID,
   REQUIRED_CONFIRMATIONS,
+  REQUIRED_TROVE_CONFIRMATIONS,
   ZERO_ADDRESS,
 } from "./config";
 import { sameAddress } from "./guards";
@@ -44,12 +45,13 @@ export function assertTxHash(hash: string): asserts hash is Hash {
 async function confirmationsFor(
   receipt: TransactionReceipt,
   client: VerifyClient,
+  required: number = REQUIRED_CONFIRMATIONS,
 ): Promise<number> {
   const latest = await client.getBlockNumber();
   const depth = latest >= receipt.blockNumber ? latest - receipt.blockNumber + 1n : 0n;
   const confirmations = Number(depth);
-  if (confirmations < REQUIRED_CONFIRMATIONS) {
-    throw new Error(`Waiting for ${REQUIRED_CONFIRMATIONS} confirmation(s) on Mezo Testnet`);
+  if (confirmations < required) {
+    throw new Error(`Waiting for ${required} confirmation(s) on Mezo Testnet`);
   }
   return confirmations;
 }
@@ -267,7 +269,7 @@ export async function verifyTroveOpened(
   if (debtWei < params.minDebtWei) throw new Error("Trove debt is lower than expected");
   if (Number(status) !== 1) throw new Error("The Mezo trove is not active");
 
-  const confirmations = await confirmationsFor(receipt, client);
+  const confirmations = await confirmationsFor(receipt, client, REQUIRED_TROVE_CONFIRMATIONS);
   return {
     txHash: params.txHash,
     blockNumber: receipt.blockNumber,
@@ -350,7 +352,7 @@ export async function verifyTroveRepaid(
     throw new Error("No MUSD repayment burn was found in that transaction");
   }
 
-  const confirmations = await confirmationsFor(receipt, client);
+  const confirmations = await confirmationsFor(receipt, client, REQUIRED_TROVE_CONFIRMATIONS);
   return {
     txHash: params.txHash,
     blockNumber: receipt.blockNumber,

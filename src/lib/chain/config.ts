@@ -69,6 +69,12 @@ export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as cons
 export const REQUIRED_CONFIRMATIONS = 1;
 
 /**
+ * Trove opens and repayments move collateral, so they wait for more depth than a
+ * plain transfer before the ledger records them.
+ */
+export const REQUIRED_TROVE_CONFIRMATIONS = 3;
+
+/**
  * Fallbacks used only when the Mezo RPC cannot return the protocol constants.
  * The live values are always read from BorrowerOperations (`minNetDebt()` and
  * `MUSD_GAS_COMPENSATION()`); these keep the UI honest during an RPC outage.

@@ -24,7 +24,12 @@ change is listed under [What changed after the first submission](#what-changed-a
 - Live `minNetDebt()` (1,800 MUSD) and `MUSD_GAS_COMPENSATION()` (200 MUSD) are
   read from the protocol and enforced before signing.
 - The server decodes the exact call and requires the matching `TroveUpdated`
-  operation; repayment amounts come from MUSD burn logs.
+  operation; repayment amounts come from MUSD burn logs. Trove opens and
+  repayments are recorded only after **3 confirmations**.
+- **MEZO now has a function:** the treasury must hold at least 1 MEZO to borrow
+  through KinVault (KinVault participation policy, checked before signing and
+  again server-side; `src/lib/chain/participation.ts`). It is a holding
+  requirement, not staking or a protocol fee — stated as such in the README.
 - Deposits, expense payments and withdrawals are verified ERC-20/native
   transfers on chain 31611.
 - The verifier is tested against **real Mezo Testnet receipts**, not only mocks:
@@ -73,7 +78,7 @@ mezo live check: ok
   credit the ledger.
 - Fixed-window rate limiting on invite preview, join, create-family and vault
   actions (`src/lib/rate-limit.server.ts`).
-- 89 automated tests across 9 files, including a suite that replays real Mezo
+- 94 automated tests across 10 files, including a suite that replays real Mezo
   Testnet receipts, plus a read-only Mezo RPC smoke test.
 - Live mode never applies an optimistic balance; it waits for the verified
   server ledger.
@@ -122,9 +127,14 @@ fixed rather than argued with:
 | Tests never touched a real chain | `src/lib/chain/verify.fixtures.test.ts` replays receipts recorded from chain 31611 |
 | No business model | `README.md` → Business model |
 | The EOA treasury was undisclosed | `README.md` → Known limitations, and this file |
-| Stale test counts (58/4) | 89 tests across 9 files, everywhere |
+| Stale test counts (58/4) | 94 tests across 10 files, everywhere |
 | No abuse controls | `src/lib/rate-limit.server.ts` on invite preview, join, create-family and vault actions |
 | Signed-out visitors saw app navigation | The header and mobile nav now render only when signed in |
+| MEZO was display-only | Treasury must hold ≥ 1 MEZO to borrow through KinVault, enforced pre-sign (`transactions.ts`) and server-side (`confirmTroveOpen`), shown in the trove panel |
+| Troves settled on 1 confirmation | Opens/repayments now require 3 confirmations (`REQUIRED_TROVE_CONFIRMATIONS`), with a regression test at 2 |
+| 6.5% APY could be misread as protocol yield | Demo stat relabelled "Simulated yield · demo only — Mezo does not pay this yield"; live mode unchanged (already yield-free) |
+| Approvals could be read as chain-enforced | Spending page now states in live mode that approvals are server-ledger-enforced, not chain-enforced |
+| README carried screenshots and a demo-video section | Removed; README now leads with on-chain claims, evidence and current status |
 
 ## Demo video
 
@@ -187,7 +197,7 @@ Screenshots used in the deck and the submission form:
 - [x] Confirm `.env` is not committed and `.env.example` is.
 - [x] Apply all four Drizzle migrations to the production Supabase project.
 - [x] Set `SUPABASE_SERVICE_ROLE_KEY` in the deployment environment.
-- [x] Run `bun run test`, `bunx tsc --noEmit` and `bun run build` — 89/89 tests
+- [x] Run `bun run test`, `bunx tsc --noEmit` and `bun run build` — 94/94 tests
       pass, TypeScript clean, production build succeeds.
 - [x] Run `bun run test:live` and save the output — see below.
 - [x] Record the 2:19 narrated walkthrough — `docs/video/kinvault-demo.mp4`.

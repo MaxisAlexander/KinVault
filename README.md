@@ -13,47 +13,6 @@ configuration in the chain layer.
 
 ---
 
-## Screenshots
-
-**Landing**
-
-![Landing page](docs/screenshots/01-landing.png)
-
-**Family dashboard**
-
-![Family dashboard](docs/screenshots/02-dashboard.png)
-
-**Spending with two-approval rules**
-
-![Spending](docs/screenshots/03-spending.png)
-
-**Borrowing against BTC**
-
-![Loans](docs/screenshots/04-loans.png)
-
-**Generational lockboxes**
-
-![Generational trust](docs/screenshots/05-trust.png)
-
-These are demo-mode captures. The network pill in the header shows the live
-Mezo Testnet block height and BTC price from `PriceFeed.fetchPrice()`.
-
-## Demo video
-
-[![Watch the KinVault walkthrough](docs/video/kinvault-demo-poster.png)](docs/video/kinvault-demo.mp4)
-
-A 2:19 narrated walkthrough of the landing page, sign-in options, dashboard,
-deposits and withdrawals, member roles, spending approvals, BTC-backed loans,
-lockboxes, receipts and the server-side verification model.
-
-- Video: [`docs/video/kinvault-demo.mp4`](docs/video/kinvault-demo.mp4)
-- Script and rebuild notes: [`docs/video/DEMO-SCRIPT.md`](docs/video/DEMO-SCRIPT.md)
-
-The walkthrough uses the sample family in demo mode; Mezo block height and BTC
-price are live. Live-mode writes require a signed-in family and a funded wallet.
-
----
-
 ## What is actually on-chain
 
 | Flow                   | What happens                                                                                                                                                                                                    |
@@ -62,8 +21,9 @@ price are live. Live-mode writes require a signed-in family and a funded wallet.
 | **Fund with test BTC** | Native test BTC moves from the member's wallet to the treasury; the server verifies the transaction value, sender and recipient.                                                                                |
 | **Pay an expense**     | After the family's approval rules pass, the treasury wallet sends MUSD to the merchant. The server verifies the transfer before debiting the treasury.                                                          |
 | **Withdraw**           | The treasury wallet sends test MUSD or BTC to a member's linked wallet. The server verifies the sender, recipient, asset and amount before debiting.                                                            |
-| **Borrow**             | The treasury wallet calls `BorrowerOperations.openTrove` with native test BTC. The server decodes the call and requires the matching `TroveUpdated` event before recording collateral and debt.                 |
-| **Repay**              | A partial repayment calls `repayMUSD`; a full repayment calls `closeTrove()` (which also returns the 200 MUSD gas compensation). The server decodes the call and derives the repaid amount from MUSD burn logs. |
+| **Borrow**             | The treasury wallet calls `BorrowerOperations.openTrove` with native test BTC. The server decodes the call, requires the matching `TroveUpdated` event and 3 confirmations before recording collateral and debt. KinVault policy (not a Mezo protocol rule): the treasury must hold at least 1 MEZO to borrow through KinVault. |
+| **Repay**              | A partial repayment calls `repayMUSD`; a full repayment calls `closeTrove()` (which also returns the 200 MUSD gas compensation). The server decodes the call, derives the repaid amount from MUSD burn logs, and records it after 3 confirmations. |
+| **MEZO participation** | MEZO is no longer display-only: holding at least 1 MEZO in the treasury is what unlocks KinVault's borrow flow. The balance is checked in the browser before the wallet signs and again on the server before the ledger records a trove (`src/lib/chain/participation.ts`). |
 | **Price**              | Loans and the UI read `PriceFeed.fetchPrice()` from Mezo, not CoinGecko or an owner-posted number.                                                                                                              |
 | **Trove state**        | `TroveManager.getTroveStatus/getTroveColl/getTroveDebt/getCurrentICR` are read live.                                                                                                                            |
 
@@ -96,6 +56,17 @@ by `bun run fixtures` and replayed in `src/lib/chain/verify.fixtures.test.ts`:
 | `musdTransfer` | [`0xf027f02f…`](https://explorer.test.mezo.org/tx/0xf027f02f4fc5e005cbfe7b2b2ca5095d8f8efbb6d7ebdc32efefda901161900c) | A genuine 500 MUSD transfer between two wallets is accepted; a different recipient or a higher amount is rejected |
 | `musdSelfTransfer` | [`0x5c61ad31…`](https://explorer.test.mezo.org/tx/0x5c61ad312481b2076adfc35a11363fe586d89e35b0cdc8310d7c1959a24fe6d6) | A real transfer from a wallet to itself passes the receipt check, which is exactly why the deposit guard rejects it |
 | `btcSelfTransfer` | [`0x3d553eac…`](https://explorer.test.mezo.org/tx/0x3d553eacbafb8a7985011c191c37fef161b7f1c86f53d5cf3385ecc00b512371) | Same, for native test BTC |
+
+> **Current status (read this before the claims above).** The verifier and the
+> borrow/repay code paths are complete and tested, and the reference Perera
+> treasury (`0x4259…214d`) holds test BTC, MUSD and 200 MEZO. But as of this
+> commit **no KinVault treasury has opened a trove through the app** — the
+> `openTrove` fixture above is a third party's transaction, used to prove the
+> verifier. Executing the borrow needs a human to sign in the treasury wallet;
+> no private key exists in this repo or its environment, by design. The runbook
+> is `TESTING.md` → "Open a Mezo trove". Until those hashes exist, treat
+> "Borrow" and "Repay" as *implemented and verifier-proven, not yet executed
+> end-to-end from KinVault*.
 
 > **An early bug, and what happened to it.** The first three deposits ever
 > recorded by KinVault were transfers a wallet made to *itself*; the verifier
@@ -283,7 +254,7 @@ unverified writes.
 ## Testing
 
 ```sh
-bun run test        # 89 unit and integration tests across 9 files
+bun run test        # 94 unit and integration tests across 10 files
 bun run test:live   # read-only smoke test against Mezo Testnet
 bun run proof 0x…   # re-verify one real transaction with the server verifier
 bun run fixtures    # re-record the Mezo Testnet fixtures used by the test suite
@@ -327,6 +298,10 @@ explorer results.
   matching `TroveUpdated` operation, so stale or unrelated trove state cannot be
   passed off as a new borrow or repayment.
 - Repayment amounts come from MUSD burn logs, never from client input.
+- Trove opens and repayments are recorded only after **3 confirmations**
+  (`REQUIRED_TROVE_CONFIRMATIONS`); plain transfers use 1.
+- Opening a trove through KinVault requires the treasury to hold ≥ 1 MEZO
+  (KinVault participation policy, enforced pre-sign and server-side).
 - `onchain_transactions` has a unique tx hash for replay protection.
 - MUSD/MEZO/protocol addresses are constants; no user-supplied token address is
   trusted.
@@ -352,7 +327,21 @@ hash-chained and every movement is explorer-linkable), not cryptographic.
 in-process fixed window on the invite, join, create-family and vault-action
 functions. On Vercel each warm instance keeps its own counter, so the effective
 limit scales with instance count. It stops a single client from hammering an
-endpoint; it is not a distributed limiter.
+endpoint; it is not a distributed limiter. Moving it to a shared store
+(Upstash/Redis) behind the same `rateLimit()` signature is still outstanding:
+no shared-store credentials are configured for this deployment, so the code
+was not switched to a backend it cannot reach.
+
+**The MEZO gate is a KinVault policy, not protocol enforcement.** Holding
+≥ 1 MEZO unlocks borrowing *in this app* (checked pre-sign and server-side).
+Mezo's BorrowerOperations does not require MEZO, and nothing stops a treasury
+from borrowing outside KinVault without it. It gives MEZO a real function in
+the product; it is not staking, collateral, or a fee.
+
+**Fork execution tests are still outstanding.** The verifier is tested with
+mocks plus real recorded receipts. There is no Anvil/Hardhat fork job that
+executes an open → repay → close cycle, because no fork toolchain is part of
+this repo's stack. That is the next testing investment, not a completed one.
 
 **There are no Solidity contracts in this repository.** KinVault consumes Mezo's
 deployed MUSD and BorrowerOperations. That is a deliberate scope choice — the
@@ -414,11 +403,7 @@ https://kinvault-six.vercel.app
 The app is deployed on Vercel from `main`; every push to `main` triggers a
 production deployment. `vercel.json` selects Nitro's Vercel preset.
 
-The submission also requires a public GitHub repository, a pitch deck and a
-2-minute demo video. `SUBMISSION.md` tracks those items.
-
-- **Pitch deck:** `docs/deck/kinvault-deck.pdf` (9 slides, 16:9)
-- **Demo video:** `docs/video/kinvault-demo.mp4` (2:19, 1080p, narrated)
+`SUBMISSION.md` tracks the remaining submission-form items.
 
 ---
 

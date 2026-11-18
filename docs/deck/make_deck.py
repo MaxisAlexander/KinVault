@@ -587,6 +587,18 @@ def slide_mezo(total: int) -> Image.Image:
         font=f(MONO, 12),
         fill=DIM,
     )
+    d.text(
+        (M, 906),
+        "MEZO has a job here: the treasury must hold 1+ MEZO to borrow through KinVault.",
+        font=f(SEMI, 17),
+        fill=MINT,
+    )
+    d.text(
+        (M, 934),
+        "A KinVault policy, checked before signing and on the server — not a Mezo protocol rule.",
+        font=f(REG, 14),
+        fill=MUTED,
+    )
     return img
 
 
@@ -709,7 +721,7 @@ def slide_business(total: int) -> Image.Image:
     ty = 392
     d.line([(tx + 10, ty + 10), (tx + 10, 900)], fill=(31, 88, 67), width=2)
     roadmap = [
-        ("Now", "Mezo Testnet MVP", "Demo + live read path, 89 tests, public repo."),
+        ("Now", "Mezo Testnet MVP", "Demo + live read path, 94 tests, public repo."),
         ("Q1 2027", "Security review + mainnet beta", "Audit, Safe treasury, monitoring, incident runbook."),
         ("Q2 2027", "Family controls", "Allowances, freeze, mobile app, fiat on-ramp."),
         ("2027+", "Distribution", "Credit unions, Bitcoin wallets and family advisors."),

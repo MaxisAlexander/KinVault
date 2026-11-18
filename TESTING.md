@@ -7,7 +7,7 @@ and a read-only/manual Mezo Testnet checklist that produces explorer evidence.
 
 ```sh
 bun install
-bun run test        # 89 unit/integration tests across 9 files
+bun run test        # 94 unit/integration tests across 10 files
 bunx tsc --noEmit   # strict TypeScript check
 bun run build       # production build
 bun run lint        # ESLint
@@ -20,6 +20,7 @@ The suite never signs a transaction and never depends on the network.
 | `blockchain.test.ts`                  | Chain config, amount math, trove planning, receipt verification, live ledger rules |
 | `src/lib/chain/verify.fixtures.test.ts` | Real Mezo Testnet receipts replayed through the production verifier               |
 | `src/lib/chain/guards.test.ts`        | The self-transfer guard that stops a deposit from crediting money that never moved |
+| `src/lib/chain/participation.test.ts` | The MEZO participation policy (treasury must hold ≥ 1 MEZO to borrow)              |
 | `src/lib/rate-limit.test.ts`          | Fixed-window limiter used by the invite, join and vault-action server functions    |
 | `src/lib/vault-logic.test.ts`         | Approval thresholds, allowances, lockboxes, loan math, freeze rules                |
 | `src/lib/wallet-auth.test.ts`         | Wallet signature message and nonce handling                                        |
@@ -39,8 +40,9 @@ The suite never signs a transaction and never depends on the network.
 - `verifyMusdTransfer` rejects the wrong chain, wrong recipient, low amount,
   reverted receipts and insufficient confirmations;
 - `verifyTroveOpened` decodes `openTrove`, requires a matching
-  `TroveUpdated(_operation = 0)` event, and rejects collateral that does not
-  equal `tx.value`;
+  `TroveUpdated(_operation = 0)` event, rejects collateral that does not
+  equal `tx.value`, and waits for **3 confirmations** (a dedicated test
+  rejects a trove at 2);
 - `verifyTroveRepaid` decodes `repayMUSD`/`closeTrove`, requires
   `TroveUpdated(_operation = 1 or 2)`, and derives `repaidWei` from MUSD
   `Transfer(owner, 0x0, amount)` burn logs;
@@ -182,8 +184,10 @@ itself, and a member without a linked wallet is not offered as a recipient.
 
 ### Open a Mezo trove
 
-1. Ensure the treasury wallet holds test BTC.
-2. Loans → **Open trove on Mezo Testnet** → collateral `0.01` BTC, borrow
+1. Ensure the treasury wallet holds test BTC and at least **1 MEZO** (KinVault
+   participation policy — the panel shows the treasury MEZO balance and the
+   Open button stays disabled below 1 MEZO; the server re-checks).
+2. Loans → **Open trove on Mezo Testnet** → collateral `0.04` BTC, borrow
    `2000` MUSD (Mezo requires at least `1,800` MUSD net debt plus `200` MUSD gas
    compensation).
 3. Sign `openTrove`.

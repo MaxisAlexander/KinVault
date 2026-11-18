@@ -12,7 +12,9 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:live": "bun run scripts/mezo-live-check.ts"
+    "test:live": "bun run scripts/mezo-live-check.ts",
+    "proof": "bun run scripts/mezo-proof.ts",
+    "fixtures": "bun run scripts/fetch-mezo-fixtures.ts"
   },
   "overrides": {
     "rolldown": "1.2.1"

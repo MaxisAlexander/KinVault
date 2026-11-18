@@ -19,6 +19,7 @@ import {
   REQUIRED_CONFIRMATIONS,
   ZERO_ADDRESS,
 } from "./config";
+import { sameAddress } from "./guards";
 
 export type VerifiedTransfer = {
   chainId: number;
@@ -35,10 +36,6 @@ export type VerifyClient = Pick<
   PublicClient,
   "getTransactionReceipt" | "getTransaction" | "getBlockNumber" | "readContract" | "getChainId"
 >;
-
-function sameAddress(a: string | null | undefined, b: string): boolean {
-  return Boolean(a) && a!.toLowerCase() === b.toLowerCase();
-}
 
 export function assertTxHash(hash: string): asserts hash is Hash {
   if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) throw new Error("Invalid transaction hash");
@@ -64,6 +61,31 @@ async function assertChain(client: VerifyClient): Promise<void> {
   }
 }
 
+/**
+ * The public Mezo RPC occasionally answers "not found" for a receipt it has
+ * already served. Retrying a few times turns a spurious failure into a normal
+ * verification without relaxing a single check.
+ */
+async function getReceipt(
+  client: VerifyClient,
+  hash: Hash,
+  attempts = 3,
+): Promise<TransactionReceipt> {
+  let last: unknown = new Error("Transaction was not found on Mezo Testnet");
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const receipt = await client.getTransactionReceipt({ hash });
+      if (receipt) return receipt;
+    } catch (error) {
+      last = error;
+    }
+    if (attempt < attempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+    }
+  }
+  throw last instanceof Error ? last : new Error("Transaction was not found on Mezo Testnet");
+}
+
 /** Verifies an ERC-20 MUSD Transfer emitted by the canonical testnet token. */
 export async function verifyMusdTransfer(
   params: {
@@ -76,8 +98,7 @@ export async function verifyMusdTransfer(
 ): Promise<VerifiedTransfer> {
   assertTxHash(params.txHash);
   await assertChain(client);
-  const receipt = await client.getTransactionReceipt({ hash: params.txHash });
-  if (!receipt) throw new Error("Transaction was not found on Mezo Testnet");
+  const receipt = await getReceipt(client, params.txHash);
   if (receipt.status !== "success") throw new Error("The Mezo transaction reverted");
   if (!sameAddress(receipt.to, MUSD.address)) {
     throw new Error("That transaction did not call the canonical MUSD contract");
@@ -127,10 +148,9 @@ export async function verifyNativeBtcTransfer(
   assertTxHash(params.txHash);
   await assertChain(client);
   const [receipt, tx] = await Promise.all([
-    client.getTransactionReceipt({ hash: params.txHash }),
+    getReceipt(client, params.txHash),
     client.getTransaction({ hash: params.txHash }),
   ]);
-  if (!receipt) throw new Error("Transaction was not found on Mezo Testnet");
   if (receipt.status !== "success") throw new Error("The Mezo transaction reverted");
   if (!sameAddress(tx.to, params.expectedTo))
     throw new Error("BTC was sent to a different address");
@@ -205,7 +225,7 @@ export async function verifyTroveOpened(
   assertTxHash(params.txHash);
   await assertChain(client);
   const [receipt, tx, status] = await Promise.all([
-    client.getTransactionReceipt({ hash: params.txHash }),
+    getReceipt(client, params.txHash),
     client.getTransaction({ hash: params.txHash }),
     client.readContract({
       address: PROTOCOL.troveManager,
@@ -214,7 +234,6 @@ export async function verifyTroveOpened(
       args: [params.owner],
     }),
   ]);
-  if (!receipt) throw new Error("Transaction was not found on Mezo Testnet");
   if (receipt.status !== "success") throw new Error("The Mezo transaction reverted");
   if (!sameAddress(receipt.to, PROTOCOL.borrowerOperations)) {
     throw new Error("That transaction did not call Mezo BorrowerOperations");
@@ -279,7 +298,7 @@ export async function verifyTroveRepaid(
   assertTxHash(params.txHash);
   await assertChain(client);
   const [receipt, tx, status] = await Promise.all([
-    client.getTransactionReceipt({ hash: params.txHash }),
+    getReceipt(client, params.txHash),
     client.getTransaction({ hash: params.txHash }),
     client.readContract({
       address: PROTOCOL.troveManager,
@@ -288,7 +307,6 @@ export async function verifyTroveRepaid(
       args: [params.owner],
     }),
   ]);
-  if (!receipt) throw new Error("Transaction was not found on Mezo Testnet");
   if (receipt.status !== "success") throw new Error("The Mezo transaction reverted");
   if (!sameAddress(receipt.to, PROTOCOL.borrowerOperations)) {
     throw new Error("That transaction did not call Mezo BorrowerOperations");

@@ -121,9 +121,15 @@ export function useVaultSession(): {
 
   useEffect(() => {
     if (!wantLive || query.status !== "success") return;
-    if (query.data) actions.hydrateLive(query.data);
-    else void navigate({ to: "/onboarding" });
-  }, [wantLive, query.status, query.data, navigate]);
+    if (query.data) {
+      actions.hydrateLive(query.data);
+      return;
+    }
+    // A refetch in flight may be about to return the family the user just
+    // created or joined. Redirecting now would bounce them back to setup.
+    if (query.isFetching || query.isStale) return;
+    void navigate({ to: "/onboarding" });
+  }, [wantLive, query.status, query.data, query.isFetching, query.isStale, navigate]);
 
   useEffect(() => {
     if (btcUsd) actions.setPrice(btcUsd);

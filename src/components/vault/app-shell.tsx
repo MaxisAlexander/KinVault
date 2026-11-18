@@ -37,7 +37,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { buildWalletLinkMessage } from "@/lib/chain/wallet-link";
 import { linkWallet as linkWalletServer } from "@/lib/family.functions";
 import { toastError } from "@/lib/errors";
-import { accountLabel, usd } from "@/lib/format";
+import { accountLabel, familyLabel, usd } from "@/lib/format";
 import { getWalletState, signMessage } from "@/lib/wallet";
 import { REQUIRED_UNFREEZE_SIGNATURES, canFreeze } from "@/lib/vault-logic";
 import { actions, memberById, useVault } from "@/lib/vault-store";
@@ -214,7 +214,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                       </>
                     ) : (
                       <>
-                        <Check className="h-3.5 w-3.5 text-primary" /> {familyName} family · saved
+                        <Check className="h-3.5 w-3.5 text-primary" /> {familyLabel(familyName)} ·
+                        saved
                       </>
                     )}
                   </span>

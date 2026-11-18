@@ -54,3 +54,13 @@ export function accountLabel(email: string | null | undefined) {
   if (wallet) return `${wallet[1]!.slice(0, 6)}.${wallet[1]!.slice(-4)}`;
   return email;
 }
+
+/**
+ * "The Perera Family" stays as it is, "Test" becomes "Test family". Avoids
+ * "The Perera Family family" wherever the family name is followed by the word.
+ */
+export function familyLabel(name: string | null | undefined) {
+  const trimmed = (name ?? "").trim();
+  if (!trimmed) return "Your family";
+  return /\bfamily$/i.test(trimmed) ? trimmed : `${trimmed} family`;
+}

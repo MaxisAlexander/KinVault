@@ -29,10 +29,26 @@ if (!hash || !/^0x[0-9a-fA-F]{64}$/.test(hash)) {
   process.exit(1);
 }
 
+/** The public endpoint sometimes answers "not found" for a tx it has served. */
+async function withRetry<T>(label: string, fn: () => Promise<T>, attempts = 5): Promise<T> {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await fn();
+    } catch {
+      if (attempt === attempts) break;
+      await new Promise((resolve) => setTimeout(resolve, 600 * attempt));
+    }
+  }
+  throw new Error(
+    `${label} could not be read from the Mezo Testnet RPC after ${attempts} attempts. ` +
+      "That is usually a transient RPC miss — wait a few seconds and run the command again.",
+  );
+}
+
 const client: VerifyClient = publicClient;
 const [tx, receipt, chainId] = await Promise.all([
-  client.getTransaction({ hash: hash as `0x${string}` }),
-  client.getTransactionReceipt({ hash: hash as `0x${string}` }),
+  withRetry("The transaction", () => client.getTransaction({ hash: hash as `0x${string}` })),
+  withRetry("The receipt", () => client.getTransactionReceipt({ hash: hash as `0x${string}` })),
   client.getChainId(),
 ]);
 

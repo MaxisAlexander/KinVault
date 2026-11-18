@@ -721,7 +721,7 @@ def slide_business(total: int) -> Image.Image:
     ty = 392
     d.line([(tx + 10, ty + 10), (tx + 10, 900)], fill=(31, 88, 67), width=2)
     roadmap = [
-        ("Now", "Mezo Testnet MVP", "Demo + live read path, 94 tests, public repo."),
+        ("Now", "Mezo Testnet MVP", "Demo + live read path, 98 tests, public repo."),
         ("Q1 2027", "Security review + mainnet beta", "Audit, Safe treasury, monitoring, incident runbook."),
         ("Q2 2027", "Family controls", "Allowances, freeze, mobile app, fiat on-ramp."),
         ("2027+", "Distribution", "Credit unions, Bitcoin wallets and family advisors."),

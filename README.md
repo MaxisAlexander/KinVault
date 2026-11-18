@@ -254,7 +254,7 @@ unverified writes.
 ## Testing
 
 ```sh
-bun run test        # 94 unit and integration tests across 10 files
+bun run test        # 98 unit and integration tests across 11 files
 bun run test:live   # read-only smoke test against Mezo Testnet
 bun run proof 0x…   # re-verify one real transaction with the server verifier
 bun run fixtures    # re-record the Mezo Testnet fixtures used by the test suite
@@ -322,6 +322,19 @@ holder. Moving the treasury to a 2-of-3 Safe — so an approval is a signature t
 chain requires — is the top item on the roadmap. Until then, the family's
 protection against a rogue guardian is social and visible (every ledger entry is
 hash-chained and every movement is explorer-linkable), not cryptographic.
+
+**The ledger and the chain can disagree, on purpose.** `vault.musd` and
+`vault.btc` count only funds that moved *through KinVault* and passed server
+verification. The dashboard therefore also shows the treasury's live on-chain
+balance, read from Mezo, labelled "On-chain treasury" — so a treasury funded
+before KinVault recorded anything reads $0 in the ledger and its real balance
+next to it. Nothing is adopted automatically: crediting an unverified balance is
+exactly the failure mode that was found and removed earlier in this project.
+
+**A treasury can be designated without a transfer.** An admin can save their own
+connected wallet as the treasury (`setTreasuryAddress`, "Use my connected wallet
+as the treasury" in the Fund dialog) while it is still unset. That action moves
+no funds and credits nothing; it only fixes which address the family will use.
 
 **Rate limiting is per instance.** `src/lib/rate-limit.server.ts` is an
 in-process fixed window on the invite, join, create-family and vault-action

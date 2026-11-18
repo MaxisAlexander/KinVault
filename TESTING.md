@@ -7,7 +7,7 @@ and a read-only/manual Mezo Testnet checklist that produces explorer evidence.
 
 ```sh
 bun install
-bun run test        # 94 unit/integration tests across 10 files
+bun run test        # 98 unit/integration tests across 11 files
 bunx tsc --noEmit   # strict TypeScript check
 bun run build       # production build
 bun run lint        # ESLint
@@ -20,6 +20,7 @@ The suite never signs a transaction and never depends on the network.
 | `blockchain.test.ts`                  | Chain config, amount math, trove planning, receipt verification, live ledger rules |
 | `src/lib/chain/verify.fixtures.test.ts` | Real Mezo Testnet receipts replayed through the production verifier               |
 | `src/lib/chain/guards.test.ts`        | The self-transfer guard that stops a deposit from crediting money that never moved |
+| `src/lib/wallet.test.ts`              | Silent wallet restore after refresh, revoked authorization, and disconnect |
 | `src/lib/chain/participation.test.ts` | The MEZO participation policy (treasury must hold ≥ 1 MEZO to borrow)              |
 | `src/lib/rate-limit.test.ts`          | Fixed-window limiter used by the invite, join and vault-action server functions    |
 | `src/lib/vault-logic.test.ts`         | Approval thresholds, allowances, lockboxes, loan math, freeze rules                |

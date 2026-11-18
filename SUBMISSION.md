@@ -78,7 +78,7 @@ mezo live check: ok
   credit the ledger.
 - Fixed-window rate limiting on invite preview, join, create-family and vault
   actions (`src/lib/rate-limit.server.ts`).
-- 94 automated tests across 10 files, including a suite that replays real Mezo
+- 98 automated tests across 11 files, including a suite that replays real Mezo
   Testnet receipts, plus a read-only Mezo RPC smoke test.
 - Live mode never applies an optimistic balance; it waits for the verified
   server ledger.
@@ -127,7 +127,7 @@ fixed rather than argued with:
 | Tests never touched a real chain | `src/lib/chain/verify.fixtures.test.ts` replays receipts recorded from chain 31611 |
 | No business model | `README.md` → Business model |
 | The EOA treasury was undisclosed | `README.md` → Known limitations, and this file |
-| Stale test counts (58/4) | 94 tests across 10 files, everywhere |
+| Stale test counts (58/4) | 98 tests across 11 files, everywhere |
 | No abuse controls | `src/lib/rate-limit.server.ts` on invite preview, join, create-family and vault actions |
 | Signed-out visitors saw app navigation | The header and mobile nav now render only when signed in |
 | MEZO was display-only | Treasury must hold ≥ 1 MEZO to borrow through KinVault, enforced pre-sign (`transactions.ts`) and server-side (`confirmTroveOpen`), shown in the trove panel |
@@ -135,6 +135,11 @@ fixed rather than argued with:
 | 6.5% APY could be misread as protocol yield | Demo stat relabelled "Simulated yield · demo only — Mezo does not pay this yield"; live mode unchanged (already yield-free) |
 | Approvals could be read as chain-enforced | Spending page now states in live mode that approvals are server-ledger-enforced, not chain-enforced |
 | README carried screenshots and a demo-video section | Removed; README now leads with on-chain claims, evidence and current status |
+| Wallet disconnected on every page refresh | The address is remembered and restored silently through `eth_accounts` (no popup, no signature); 4 tests in `src/lib/wallet.test.ts` |
+| Header BTC price could show the demo constant in live mode | Header reads Mezo `PriceFeed.fetchPrice()` with a live/stale dot and tooltip; the vault price is only a fallback while the RPC loads |
+| A family whose treasury was its own wallet could never set one (the Fund dialog blocked self-transfers, so the treasury stayed unset) | New admin action `setTreasuryAddress` plus "Use my connected wallet as the treasury" in the Fund dialog — moves no funds, credits nothing |
+| The ledger read $0 while the treasury held funds on Mezo | Dashboard shows the treasury's live on-chain MUSD and BTC read-only, labelled "On-chain treasury", next to the ledger |
+| The Fund dialog was a dead end when the connected wallet was the treasury | Explains why a self-transfer is blocked, offers "Switch wallet", and states that borrowing does not need a deposit |
 
 ## Demo video
 
@@ -197,7 +202,7 @@ Screenshots used in the deck and the submission form:
 - [x] Confirm `.env` is not committed and `.env.example` is.
 - [x] Apply all four Drizzle migrations to the production Supabase project.
 - [x] Set `SUPABASE_SERVICE_ROLE_KEY` in the deployment environment.
-- [x] Run `bun run test`, `bunx tsc --noEmit` and `bun run build` — 94/94 tests
+- [x] Run `bun run test`, `bunx tsc --noEmit` and `bun run build` — 98/98 tests
       pass, TypeScript clean, production build succeeds.
 - [x] Run `bun run test:live` and save the output — see below.
 - [x] Record the 2:19 narrated walkthrough — `docs/video/kinvault-demo.mp4`.

@@ -104,27 +104,29 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Link to="/" className="shrink-0">
             <Logo />
           </Link>
-          <nav className="hidden items-center gap-1 md:flex">
-            {NAV.map((n) => (
-              <Link
-                key={n.to}
-                to={n.to}
-                className="rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
-                activeProps={{ className: "bg-mint !text-mint-foreground" }}
-              >
-                {n.label}
-              </Link>
-            ))}
-            {live && (
-              <Link
-                to="/family"
-                className="rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
-                activeProps={{ className: "bg-mint !text-mint-foreground" }}
-              >
-                Family
-              </Link>
-            )}
-          </nav>
+          {session.signedIn && (
+            <nav className="hidden items-center gap-1 md:flex">
+              {NAV.map((n) => (
+                <Link
+                  key={n.to}
+                  to={n.to}
+                  className="rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                  activeProps={{ className: "bg-mint !text-mint-foreground" }}
+                >
+                  {n.label}
+                </Link>
+              ))}
+              {live && (
+                <Link
+                  to="/family"
+                  className="rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                  activeProps={{ className: "bg-mint !text-mint-foreground" }}
+                >
+                  Family
+                </Link>
+              )}
+            </nav>
+          )}
           <div className="ml-auto flex items-center gap-2.5">
             <NetworkPill />
             <div className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold xl:flex">
@@ -169,27 +171,29 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </div>
         </div>
-        <nav className="flex gap-1 overflow-x-auto border-t border-border/60 px-4 py-2 md:hidden">
-          {NAV.map((n) => (
-            <Link
-              key={n.to}
-              to={n.to}
-              className="rounded-lg px-3 py-1.5 text-sm font-semibold text-muted-foreground"
-              activeProps={{ className: "bg-mint !text-mint-foreground" }}
-            >
-              {n.label}
-            </Link>
-          ))}
-          {live && (
-            <Link
-              to="/family"
-              className="rounded-lg px-3 py-1.5 text-sm font-semibold text-muted-foreground"
-              activeProps={{ className: "bg-mint !text-mint-foreground" }}
-            >
-              Family
-            </Link>
-          )}
-        </nav>
+        {session.signedIn && (
+          <nav className="flex gap-1 overflow-x-auto border-t border-border/60 px-4 py-2 md:hidden">
+            {NAV.map((n) => (
+              <Link
+                key={n.to}
+                to={n.to}
+                className="rounded-lg px-3 py-1.5 text-sm font-semibold text-muted-foreground"
+                activeProps={{ className: "bg-mint !text-mint-foreground" }}
+              >
+                {n.label}
+              </Link>
+            ))}
+            {live && (
+              <Link
+                to="/family"
+                className="rounded-lg px-3 py-1.5 text-sm font-semibold text-muted-foreground"
+                activeProps={{ className: "bg-mint !text-mint-foreground" }}
+              >
+                Family
+              </Link>
+            )}
+          </nav>
+        )}
       </header>
 
       <div className="border-b border-border/60 bg-surface">

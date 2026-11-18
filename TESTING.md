@@ -7,7 +7,7 @@ and a read-only/manual Mezo Testnet checklist that produces explorer evidence.
 
 ```sh
 bun install
-bun run test        # 58 unit/integration tests across 4 files
+bun run test        # 89 unit/integration tests across 9 files
 bunx tsc --noEmit   # strict TypeScript check
 bun run build       # production build
 bun run lint        # ESLint
@@ -15,12 +15,17 @@ bun run lint        # ESLint
 
 The suite never signs a transaction and never depends on the network.
 
-| File                            | What it covers                                                                     |
-| ------------------------------- | ---------------------------------------------------------------------------------- |
-| `blockchain.test.ts`            | Chain config, amount math, trove planning, receipt verification, live ledger rules |
-| `src/lib/vault-logic.test.ts`   | Approval thresholds, allowances, lockboxes, loan math, freeze rules                |
-| `src/lib/wallet-auth.test.ts`   | Wallet signature message and nonce handling                                        |
-| `src/test/app-routing.test.tsx` | Route rendering and auth-safe redirects                                            |
+| File                                  | What it covers                                                                     |
+| ------------------------------------- | ---------------------------------------------------------------------------------- |
+| `blockchain.test.ts`                  | Chain config, amount math, trove planning, receipt verification, live ledger rules |
+| `src/lib/chain/verify.fixtures.test.ts` | Real Mezo Testnet receipts replayed through the production verifier               |
+| `src/lib/chain/guards.test.ts`        | The self-transfer guard that stops a deposit from crediting money that never moved |
+| `src/lib/rate-limit.test.ts`          | Fixed-window limiter used by the invite, join and vault-action server functions    |
+| `src/lib/vault-logic.test.ts`         | Approval thresholds, allowances, lockboxes, loan math, freeze rules                |
+| `src/lib/wallet-auth.test.ts`         | Wallet signature message and nonce handling                                        |
+| `src/lib/errors.test.ts`              | User-facing error copy (no raw library text leaks to a toast)                      |
+| `src/lib/format.test.ts`              | Money, date and address formatting                                                 |
+| `src/test/app-routing.test.tsx`       | Route rendering and auth-safe redirects                                            |
 
 ### Blockchain coverage
 
@@ -50,6 +55,44 @@ The suite never signs a transaction and never depends on the network.
   treasury wallet), and releasing one returns the earmark to the spendable
   treasury balance so guardians can withdraw it to the child's wallet;
 - demo mode still pays instant expenses immediately.
+
+### Real-chain fixtures
+
+`blockchain.test.ts` uses an injected fake client, which proves the verifier
+rejects bad input but not that its ABIs and event layouts match reality.
+`src/lib/chain/verify.fixtures.test.ts` closes that gap: it replays receipts that
+were actually mined on chain 31611.
+
+```sh
+bun run fixtures   # re-record src/test/fixtures/mezo-receipts.json from the RPC
+bun run test       # replay them through verifyMusdTransfer / verifyTroveOpened
+```
+
+The recorded fixtures are:
+
+| Fixture | Transaction | Assertion |
+| --- | --- | --- |
+| `openTrove` | `0x4ea9ac26…0fb4` | `verifyTroveOpened` decodes a real `openTrove` call, reads the `TroveUpdated` event, and requires `tx.value` to equal the event collateral |
+| `musdTransfer` | `0xf027f02f…900c` | `verifyMusdTransfer` accepts a real 500 MUSD transfer and rejects a different recipient or a higher amount |
+| `musdSelfTransfer` | `0x5c61ad31…e6d6` | A real wallet→itself transfer passes the receipt check, which is exactly why `assertNotSelfTransfer` runs first |
+| `btcSelfTransfer` | `0x3d553eac…2371` | Same, for native test BTC |
+
+Two values are injected rather than recorded, and both are stated in the test:
+the head block (so the fixture never expires) and `TroveManager.getTroveStatus`
+(read live in production, seconds after the borrow). The status recorded at
+capture time is kept as `troveStatusNow` and asserted separately — that trove was
+redeemed afterwards, and the test proves the verifier refuses an inactive trove.
+
+### Verifying one transaction by hand
+
+```sh
+bun run proof 0x<transaction hash>
+```
+
+This runs the production verifier against a single transaction and prints the
+decoded effect plus a markdown row. It is the fastest way for a reviewer to check
+a claim in the README, and the fastest way to produce the evidence row after a
+manual borrow or repayment.
 
 ## 2. Read-only Mezo Testnet smoke test
 
@@ -85,9 +128,11 @@ member wallet.
 4. Start the app with `bun run dev` and sign in.
 5. Create a family, or open the seeded demo family and switch to live mode by
    signing in with a real family.
-6. Link the treasury wallet to the admin seat (wallet menu → link profile), and
-   link the second wallet to another seat.
-7. Fund the treasury with a small test MUSD amount.
+6. Link the member wallet (the one that will send funds) to a seat. The treasury
+   must be a **different** wallet: a deposit from the treasury to itself moves no
+   value and is rejected. Use a second wallet for the treasury, or set the
+   treasury to another guardian's wallet on the first deposit.
+7. Fund the treasury from the member wallet with a small test MUSD amount.
 
 Expected: the dashboard shows the MUSD balance only after the server verifies
 the receipt. The activity entry links to the exact Mezo Testnet transaction.
@@ -171,6 +216,8 @@ not used because it cannot burn the gas compensation.
 These must all fail without changing the ledger:
 
 - a transaction hash from another chain;
+- a deposit whose sender is the treasury itself (`from == to`), which moves no
+  value even though the receipt is genuine;
 - a MUSD transfer to the wrong recipient;
 - a native BTC transfer to the wrong recipient;
 - a reverted transaction;

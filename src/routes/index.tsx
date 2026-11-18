@@ -163,20 +163,22 @@ function Landing() {
         <Link to="/" className="shrink-0">
           <Logo />
         </Link>
-        <nav className="hidden items-center gap-6 text-sm font-semibold text-muted-foreground md:flex">
-          <Link to="/dashboard" className="hover:text-foreground">
-            Dashboard
-          </Link>
-          <Link to="/spending" className="hover:text-foreground">
-            Spending
-          </Link>
-          <Link to="/loans" className="hover:text-foreground">
-            Loans
-          </Link>
-          <Link to="/trust" className="hover:text-foreground">
-            Trust
-          </Link>
-        </nav>
+        {auth.ready && auth.signedIn && (
+          <nav className="hidden items-center gap-6 text-sm font-semibold text-muted-foreground md:flex">
+            <Link to="/dashboard" className="hover:text-foreground">
+              Dashboard
+            </Link>
+            <Link to="/spending" className="hover:text-foreground">
+              Spending
+            </Link>
+            <Link to="/loans" className="hover:text-foreground">
+              Loans
+            </Link>
+            <Link to="/trust" className="hover:text-foreground">
+              Trust
+            </Link>
+          </nav>
+        )}
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           {!auth.ready ? (
             <Skeleton className="h-11 w-40 rounded-xl" />

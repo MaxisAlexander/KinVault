@@ -71,6 +71,41 @@ The browser only ever sends a **transaction hash** to the server. The server
 independently fetches the receipt and checks the chain, contract, sender,
 recipient, amount and confirmations before touching the family ledger.
 
+### Evidence you can check yourself
+
+Every claim above can be re-run from a clean checkout:
+
+```sh
+bun run proof 0x<transaction hash>   # re-verifies one tx with the production verifier
+bun run fixtures                     # re-records the chain fixtures from Mezo Testnet
+```
+
+`bun run proof` prints the decoded effect of a transaction — amount, sender,
+recipient, collateral, debt, MUSD burned — using the same functions the server
+runs before it credits a ledger. It works for MUSD transfers, native BTC
+transfers, `openTrove`, `repayMUSD` and `closeTrove`, and it labels a
+self-transfer as one instead of reporting it as a deposit.
+
+The verifier is also tested against **real Mezo Testnet receipts**, not only
+against mocks. `src/test/fixtures/mezo-receipts.json` is recorded from chain 31611
+by `bun run fixtures` and replayed in `src/lib/chain/verify.fixtures.test.ts`:
+
+| Fixture | Transaction | What the test proves |
+| --- | --- | --- |
+| `openTrove` | [`0x4ea9ac26…`](https://explorer.test.mezo.org/tx/0x4ea9ac261a6c6a69234e8c508fcfda6594a00ad855ff1d396aa9fa592bd90fb4) | A genuine `BorrowerOperations.openTrove` (0.06 BTC collateral) decodes, and the `TroveUpdated` event is read rather than trusted from the client |
+| `musdTransfer` | [`0xf027f02f…`](https://explorer.test.mezo.org/tx/0xf027f02f4fc5e005cbfe7b2b2ca5095d8f8efbb6d7ebdc32efefda901161900c) | A genuine 500 MUSD transfer between two wallets is accepted; a different recipient or a higher amount is rejected |
+| `musdSelfTransfer` | [`0x5c61ad31…`](https://explorer.test.mezo.org/tx/0x5c61ad312481b2076adfc35a11363fe586d89e35b0cdc8310d7c1959a24fe6d6) | A real transfer from a wallet to itself passes the receipt check, which is exactly why the deposit guard rejects it |
+| `btcSelfTransfer` | [`0x3d553eac…`](https://explorer.test.mezo.org/tx/0x3d553eacbafb8a7985011c191c37fef161b7f1c86f53d5cf3385ecc00b512371) | Same, for native test BTC |
+
+> **An early bug, and what happened to it.** The first three deposits ever
+> recorded by KinVault were transfers a wallet made to *itself*; the verifier
+> checked sender, recipient and amount but not that the two differed, so the
+> ledger was credited for money that never moved. `src/lib/chain/guards.ts` now
+> rejects that, the deposit form refuses to start such a transfer, the three rows
+> were deleted from `onchain_transactions`, and the affected ledger balances were
+> reset to zero. `docs/audit/README.md` documents the removal and
+> `docs/audit/purged-self-transfers.json` keeps the deleted rows.
+
 ### Verified testnet contracts
 
 | Contract           | Address                                      |
@@ -248,8 +283,10 @@ unverified writes.
 ## Testing
 
 ```sh
-bun run test        # unit tests, including blockchain.test.ts
+bun run test        # 89 unit and integration tests across 9 files
 bun run test:live   # read-only smoke test against Mezo Testnet
+bun run proof 0x…   # re-verify one real transaction with the server verifier
+bun run fixtures    # re-record the Mezo Testnet fixtures used by the test suite
 bun run build       # production build
 ```
 
@@ -272,9 +309,12 @@ push (`.github/workflows/ci.yml`).
 - live mode refusing ledger-only value movements and demo mode still paying
   instant expenses
 
-`TESTING.md` documents every automated test and the manual testnet checks
-(connect, link, fund, approve, pay, withdraw, open trove, partial repay, close)
-with expected explorer results.
+`src/lib/chain/verify.fixtures.test.ts` replays real Mezo Testnet receipts
+recorded in `src/test/fixtures/mezo-receipts.json`, and
+`src/lib/chain/guards.test.ts` covers the self-transfer guard. `TESTING.md`
+documents every automated test and the manual testnet checks (connect, link,
+fund, approve, pay, withdraw, open trove, partial repay, close) with expected
+explorer results.
 
 ---
 
@@ -291,6 +331,36 @@ with expected explorer results.
 - MUSD/MEZO/protocol addresses are constants; no user-supplied token address is
   trusted.
 - Testnet only. Do not reuse this configuration with real funds without an audit.
+
+### Known limitations
+
+These are real, and they are stated here rather than left to be discovered.
+
+**The treasury is a single EOA, so the two-signature rule is enforced by this app,
+not by the chain.** `families.treasury_address` is one wallet, and only that
+wallet can settle an expense, withdraw or open a trove
+(`src/lib/family.functions.ts`). The "two guardians must approve" rule lives in
+`src/lib/vault-logic.ts` and the server ledger: the key holder could bypass
+KinVault entirely and send MUSD from the treasury wallet with any wallet client.
+The rule is genuine for everyone using the app and worthless against the key
+holder. Moving the treasury to a 2-of-3 Safe — so an approval is a signature the
+chain requires — is the top item on the roadmap. Until then, the family's
+protection against a rogue guardian is social and visible (every ledger entry is
+hash-chained and every movement is explorer-linkable), not cryptographic.
+
+**Rate limiting is per instance.** `src/lib/rate-limit.server.ts` is an
+in-process fixed window on the invite, join, create-family and vault-action
+functions. On Vercel each warm instance keeps its own counter, so the effective
+limit scales with instance count. It stops a single client from hammering an
+endpoint; it is not a distributed limiter.
+
+**There are no Solidity contracts in this repository.** KinVault consumes Mezo's
+deployed MUSD and BorrowerOperations. That is a deliberate scope choice — the
+interesting problem here is family governance and receipt verification — but it
+does mean "smart contract design" is not something this submission demonstrates.
+
+**Testnet only.** No mainnet configuration exists anywhere in the codebase, by
+design.
 
 ---
 
@@ -349,6 +419,50 @@ The submission also requires a public GitHub repository, a pitch deck and a
 
 - **Pitch deck:** `docs/deck/kinvault-deck.pdf` (9 slides, 16:9)
 - **Demo video:** `docs/video/kinvault-demo.mp4` (2:19, 1080p, narrated)
+
+---
+
+## Business model
+
+There is no revenue today. This section is the plan, written down so it can be
+argued with rather than assumed.
+
+**Who pays.** The household, not the merchant and not the protocol. A family that
+already holds Bitcoin and wants a shared account with rules is the buyer; the
+teenager who spends from it is not.
+
+**What they are buying.** Not a wallet — a policy layer. The approval thresholds,
+the daily allowances, the lockboxes and the hash-chained receipt log are the
+product. Any wallet can hold MUSD; none of them can tell a fifteen-year-old "you
+have $50 today and School and Groceries only".
+
+**Three ways it could earn, in order of how much I believe them.**
+
+1. **Origination fee on MUSD borrowed through KinVault.** The borrow flow is the
+   monetisable moment: a family that mints 3,000 MUSD against its BTC to pay for a
+   roof is already paying Mezo's borrowing fee, and a 0.25% KinVault fee on
+   principal (7.5 MUSD in that example) is small next to the alternative of
+   selling the Bitcoin. This is the only line that scales with the thing the
+   product is actually for.
+2. **Subscription.** $4 per month per family for the rules engine, the receipt
+   log and multi-guardian approvals. Predictable, and matches how family-finance
+   apps already price (Greenlight, Acorns Early). It also caps the market: this is
+   a paid product in a category where most people expect free banking.
+3. **White label.** Wallets and credit unions on Mezo that want a household mode
+   can license the policy engine and the verification layer. Highest ceiling,
+   longest sales cycle, and it only becomes credible after (1) works.
+
+**Why it is defensible.** The verification layer is the moat that is cheapest to
+build first and hardest to copy badly: the browser sends a hash, the server
+re-derives the chain, contract, sender, recipient, amount, decoded call and
+emitted event before the ledger moves. A competitor can copy the UI in a week; a
+competitor that copies the UI without copying the verification will ship a product
+where a client can invent a deposit.
+
+**What would have to be true.** Families would need to hold MUSD, which means Mezo
+needs a fiat on-ramp and a card or bill-pay rail before a household can use this
+for groceries rather than for a one-off purchase. That is the honest dependency:
+KinVault is a consumer product sitting on infrastructure that is still testnet.
 
 ---
 

@@ -1,7 +1,8 @@
 # KinVault — Mezo Buildathon submission
 
 Wave 2 deadline: **November 15, 2026, 20:30**. Judging: November 16–22. Winners:
-November 23.
+November 23. The repository has been updated during the judging window; every
+change is listed under [What changed after the first submission](#what-changed-after-the-first-submission).
 
 ## Hard requirements
 
@@ -26,6 +27,12 @@ November 23.
   operation; repayment amounts come from MUSD burn logs.
 - Deposits, expense payments and withdrawals are verified ERC-20/native
   transfers on chain 31611.
+- The verifier is tested against **real Mezo Testnet receipts**, not only mocks:
+  `src/test/fixtures/mezo-receipts.json` is recorded from chain 31611 and
+  replayed in `src/lib/chain/verify.fixtures.test.ts`.
+- `bun run proof 0x…` re-verifies any single transaction with the production
+  verifier and prints the decoded effect, so a reviewer can check a claim without
+  trusting this document.
 
 Read-only verification against the live chain (`bun run test:live`, 15 Nov 2026):
 
@@ -48,7 +55,12 @@ mezo live check: ok
 - Two-approval spending rules, per-member allowances, freeze/unfreeze and
   guardian lockboxes are implemented as pure, tested rules.
 - The treasury is a real Mezo Testnet wallet; KinVault never holds a key.
-- Clear path to a 2-of-3 Safe or dedicated vault contract for production.
+- A written business model — who pays, what they buy, three revenue paths, and
+  the honest dependency on Mezo getting a fiat on-ramp — is in
+  `README.md` → Business model.
+- Clear path to a 2-of-3 Safe or dedicated vault contract for production. The
+  current limitation is disclosed rather than implied away; see
+  [Known limitations](#known-limitations).
 
 ### Technical Implementation — 20%
 
@@ -56,7 +68,13 @@ mezo live check: ok
 - Server-authoritative ledger: the browser sends only a transaction hash.
 - Replay protection via `onchain_transactions.tx_hash` primary key.
 - Hash-chained activity log.
-- 58 automated tests plus a read-only Mezo RPC smoke test.
+- Self-transfer guard: a deposit whose sender is the treasury is rejected before
+  the receipt is fetched, so a genuine transaction that moved no value cannot
+  credit the ledger.
+- Fixed-window rate limiting on invite preview, join, create-family and vault
+  actions (`src/lib/rate-limit.server.ts`).
+- 89 automated tests across 9 files, including a suite that replays real Mezo
+  Testnet receipts, plus a read-only Mezo RPC smoke test.
 - Live mode never applies an optimistic balance; it waits for the verified
   server ledger.
 
@@ -70,9 +88,43 @@ mezo live check: ok
 
 ### Submission Materials — 10%
 
-- `README.md`: architecture, on-chain flows, setup, security model.
-- `TESTING.md`: automated coverage and the manual testnet checklist.
+- `README.md`: architecture, on-chain flows, setup, security model, known
+  limitations, business model.
+- `TESTING.md`: automated coverage, the real-chain fixture suite, the manual
+  testnet checklist and `bun run proof`.
 - `SUBMISSION.md`: this rubric map and the remaining checklist.
+
+## Known limitations
+
+Stated up front, because a judge will find them anyway and discovery costs more
+than disclosure.
+
+1. **The treasury is a single EOA.** The "two guardians must approve" rule is
+   enforced by this application and the server ledger, not by the chain. The
+   treasury key holder could bypass KinVault and move MUSD directly. The rule is
+   real for everyone using the app and not a cryptographic guarantee against the
+   key holder. Replacing the EOA with a 2-of-3 Safe is the first roadmap item.
+2. **Rate limiting is per instance.** The limiter is in-process, so on Vercel the
+   effective limit scales with the number of warm instances.
+3. **No Solidity in this repository.** KinVault consumes Mezo's deployed MUSD and
+   BorrowerOperations rather than shipping its own contracts.
+4. **Testnet only.** There is no mainnet configuration anywhere in the codebase.
+
+## What changed after the first submission
+
+An independent review of this repository produced a list of findings. These were
+fixed rather than argued with:
+
+| Finding | Fix |
+| --- | --- |
+| Deposits accepted self-transfers (`from == to`), inflating the ledger | `src/lib/chain/guards.ts` rejects it before the receipt is fetched; the deposit form refuses to start such a transfer; the three affected rows were deleted and the ledger balances reset (`docs/audit/`) |
+| The borrow path had never been executed | The verifier is now proven against a real `openTrove` receipt from chain 31611 (`src/lib/chain/verify.fixtures.test.ts`), and `bun run proof 0x…` reproduces it. A KinVault-signed borrow still needs a funded treasury wallet; the runbook is in `TESTING.md` |
+| Tests never touched a real chain | `src/lib/chain/verify.fixtures.test.ts` replays receipts recorded from chain 31611 |
+| No business model | `README.md` → Business model |
+| The EOA treasury was undisclosed | `README.md` → Known limitations, and this file |
+| Stale test counts (58/4) | 89 tests across 9 files, everywhere |
+| No abuse controls | `src/lib/rate-limit.server.ts` on invite preview, join, create-family and vault actions |
+| Signed-out visitors saw app navigation | The header and mobile nav now render only when signed in |
 
 ## Demo video
 
@@ -135,7 +187,7 @@ Screenshots used in the deck and the submission form:
 - [x] Confirm `.env` is not committed and `.env.example` is.
 - [x] Apply all four Drizzle migrations to the production Supabase project.
 - [x] Set `SUPABASE_SERVICE_ROLE_KEY` in the deployment environment.
-- [x] Run `bun run test`, `bunx tsc --noEmit` and `bun run build` — 58/58 tests
+- [x] Run `bun run test`, `bunx tsc --noEmit` and `bun run build` — 89/89 tests
       pass, TypeScript clean, production build succeeds.
 - [x] Run `bun run test:live` and save the output — see below.
 - [x] Record the 2:19 narrated walkthrough — `docs/video/kinvault-demo.mp4`.

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 import { DEMO_MERCHANT_ADDRESS, MUSD } from "./chain/config";
+import { assertNotSelfTransfer } from "./chain/guards";
 import { vaultActionSchema, type Ledger, type VaultAction } from "./vault-engine";
 import type { VaultPayload } from "./vault-store";
 
@@ -96,6 +97,9 @@ export const createFamily = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const engine = await import("./vault-engine");
     const logic = await import("./vault-logic");
+    const { rateLimit } = await import("./rate-limit.server");
+
+    rateLimit(`createFamily:${context.userId}`, 3, 60_000);
 
     if (await srv.findMembership(context.userId))
       throw new Error("You already belong to a family vault");
@@ -178,9 +182,15 @@ export const previewInvite = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z.object({ code: z.string().trim().min(4).max(40) }).parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const srv = await import("./family.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { rateLimit } = await import("./rate-limit.server");
+
+    // Invite codes are short and guessable if nobody is watching. 12 probes a
+    // minute is generous for a human and useless for a script.
+    rateLimit(`previewInvite:${context.userId}`, 12, 60_000);
+
     const { data: inv } = await supabaseAdmin
       .from("family_invites")
       .select("member_id, family_id")
@@ -208,6 +218,9 @@ export const joinFamily = createServerFn({ method: "POST" })
     const srv = await import("./family.server");
     const engine = await import("./vault-engine");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { rateLimit } = await import("./rate-limit.server");
+
+    rateLimit(`joinFamily:${context.userId}`, 6, 60_000);
 
     if (await srv.findMembership(context.userId))
       throw new Error("You already belong to a family vault");
@@ -388,6 +401,10 @@ export const dispatchVaultAction = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<ActionResponse> => {
     const srv = await import("./family.server");
     const engine = await import("./vault-engine");
+    const { rateLimit } = await import("./rate-limit.server");
+
+    rateLimit(`dispatchVaultAction:${context.userId}`, 40, 60_000);
+
     const me = await srv.findMembership(context.userId, context.supabase);
     if (!me)
       return { ok: false, message: "You're not in a family vault yet", ledger: null, version: 0 };
@@ -483,13 +500,19 @@ export const confirmMusdDeposit = createServerFn({ method: "POST" })
     const fam = await srv.loadFamily(me.family_id);
     const requestedTreasury = data.treasuryAddress.toLowerCase();
     const treasury = (fam.treasury_address ?? requestedTreasury).toLowerCase();
-    if (!fam.treasury_address) {
-      if (me.role !== "admin") throw new Error("Only an admin can set the family treasury");
-      if (requestedTreasury !== treasury) throw new Error("Treasury address mismatch");
-      await supabaseAdmin.from("families").update({ treasury_address: treasury }).eq("id", fam.id);
-    }
     if (requestedTreasury !== treasury)
       throw new Error("This family uses a different treasury address");
+
+    assertNotSelfTransfer(
+      me.wallet_address,
+      treasury,
+      "That wallet is already the family treasury — send from a different wallet to add funds",
+    );
+
+    if (!fam.treasury_address) {
+      if (me.role !== "admin") throw new Error("Only an admin can set the family treasury");
+      await supabaseAdmin.from("families").update({ treasury_address: treasury }).eq("id", fam.id);
+    }
 
     const verified = await verify.verifyMusdTransfer({
       txHash: data.txHash,
@@ -547,12 +570,19 @@ export const confirmBtcDeposit = createServerFn({ method: "POST" })
     const fam = await srv.loadFamily(me.family_id);
     const requestedTreasury = data.treasuryAddress.toLowerCase();
     const treasury = (fam.treasury_address ?? requestedTreasury).toLowerCase();
+    if (requestedTreasury !== treasury)
+      throw new Error("This family uses a different treasury address");
+
+    assertNotSelfTransfer(
+      me.wallet_address,
+      treasury,
+      "That wallet is already the family treasury — send from a different wallet to add funds",
+    );
+
     if (!fam.treasury_address) {
       if (me.role !== "admin") throw new Error("Only an admin can set the family treasury");
       await supabaseAdmin.from("families").update({ treasury_address: treasury }).eq("id", fam.id);
     }
-    if (requestedTreasury !== treasury)
-      throw new Error("This family uses a different treasury address");
 
     const verified = await verify.verifyNativeBtcTransfer({
       txHash: data.txHash,

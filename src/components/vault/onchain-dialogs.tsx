@@ -83,8 +83,14 @@ export function FundVaultDialog({
     wallet.address &&
     mySeat.walletAddress.toLowerCase() === wallet.address.toLowerCase(),
   );
-  const treasury = state.treasuryAddress ?? (treasuryInput || wallet.address || "");
+  const treasury = state.treasuryAddress ?? treasuryInput.trim();
   const isLive = state.mode === "live";
+  // A deposit only moves value if the sender is a different address from the
+  // treasury. Sending from the treasury wallet to itself is a no-op on chain, so
+  // the server rejects it and the UI refuses to start the transfer.
+  const sendingFromTreasury = Boolean(
+    treasury && wallet.address && treasury.toLowerCase() === wallet.address.toLowerCase(),
+  );
 
   async function submit() {
     if (!isLive) {
@@ -96,7 +102,11 @@ export function FundVaultDialog({
       return;
     }
     if (!treasury) {
-      toast.error("Connect the treasury wallet first");
+      toast.error("Add the family treasury address first");
+      return;
+    }
+    if (sendingFromTreasury) {
+      toast.error("Switch wallets — the treasury can't fund itself");
       return;
     }
     if (!linked) {
@@ -138,7 +148,7 @@ export function FundVaultDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (next) setTreasuryInput(state.treasuryAddress ?? wallet.address ?? "");
+        if (next) setTreasuryInput(state.treasuryAddress ?? "");
       }}
     >
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -176,14 +186,21 @@ export function FundVaultDialog({
                 id="treasury-address"
                 value={treasuryInput}
                 onChange={(e) => setTreasuryInput(e.target.value)}
-                placeholder="0x… (defaults to this wallet)"
+                placeholder="0x… treasury wallet address"
                 className="h-11 rounded-xl font-mono text-xs"
               />
               <p className="text-xs text-muted-foreground">
-                Only an admin can set this on the first deposit. Use a separate test wallet for a
-                clean treasury demo.
+                Only an admin can set this on the first deposit. It must be a different wallet from
+                the one you are sending from — use a second test wallet so the transfer actually
+                moves value.
               </p>
             </div>
+          )}
+          {sendingFromTreasury && (
+            <p className="rounded-lg bg-warning-soft px-3 py-2 text-xs font-semibold text-warning">
+              This wallet is the family treasury. Sending {asset} to itself moves nothing, so the
+              server will reject it. Switch to a member wallet to add funds.
+            </p>
           )}
           {!linked && wallet.address && (
             <p className="rounded-lg bg-warning-soft px-3 py-2 text-xs font-semibold text-warning">
@@ -213,7 +230,7 @@ export function FundVaultDialog({
             size="lg"
             className="w-full"
             onClick={() => void submit()}
-            disabled={busy || !amount}
+            disabled={busy || !amount || !treasury || sendingFromTreasury}
           >
             {busy ? <Loader2 className="animate-spin" /> : <ArrowDownToLine />}
             Fund {asset} on Mezo Testnet

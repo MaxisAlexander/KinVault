@@ -254,7 +254,13 @@ export async function restoreWalletSession(): Promise<boolean> {
   }
   const saved = rememberedAddress();
   if (!saved) return false;
-  const p = provider();
+  // Some extensions inject window.ethereum a moment after first paint, so give
+  // them a few short attempts before giving up. Never prompts the user.
+  let p = provider();
+  for (let attempt = 0; !p && attempt < 4; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    p = provider();
+  }
   if (!p) return false;
   try {
     const accs = (await p.request({ method: "eth_accounts" })) as string[];

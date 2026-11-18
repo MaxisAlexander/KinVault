@@ -5,25 +5,44 @@ import {
   canRelease,
   checkApproval,
   healthFactor,
-  isAutoApproved,
   isFullyApproved,
   liquidationPrice,
   riskLevel,
 } from "./vault-logic";
 
 describe("spending rules", () => {
-  it("auto-approves expenses under $100 MUSD", () => {
-    expect(isAutoApproved(99.99)).toBe(true);
-  });
-
-  it("requires approval at $100 MUSD and above", () => {
-    expect(isAutoApproved(100)).toBe(false);
-  });
-
-  it("needs two distinct family approvals", () => {
+  it("falls back to two distinct approvals for legacy rows with no chosen approvers", () => {
     expect(isFullyApproved(["mom"])).toBe(false);
     expect(isFullyApproved(["mom", "mom"])).toBe(false);
     expect(isFullyApproved(["mom", "dad"])).toBe(true);
+  });
+
+  it("is complete when every chosen approver has signed", () => {
+    expect(isFullyApproved([], ["dad"])).toBe(false);
+    expect(isFullyApproved(["dad"], ["dad"])).toBe(true);
+    expect(isFullyApproved(["dad"], ["dad", "mom"])).toBe(false);
+    expect(isFullyApproved(["dad", "mom"], ["dad", "mom"])).toBe(true);
+  });
+
+  it("only lets the chosen approvers sign", () => {
+    expect(
+      checkApproval({
+        requesterId: "maya",
+        approverId: "mom",
+        approverRole: "spouse",
+        existingApprovals: [],
+        requiredApprovers: ["dad"],
+      }).ok,
+    ).toBe(false);
+    expect(
+      checkApproval({
+        requesterId: "maya",
+        approverId: "dad",
+        approverRole: "admin",
+        existingApprovals: [],
+        requiredApprovers: ["dad"],
+      }).ok,
+    ).toBe(true);
   });
 
   it("blocks requesters from approving their own expense", () => {

@@ -239,7 +239,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <span className="hidden sm:inline">
                 {acting.role === "admin" || acting.role === "spouse"
                   ? "can approve expenses, borrow and sign lockbox unlocks"
-                  : "can spend under $100 within their allowance — bigger buys need 2 approvals"}
+                  : "can request expenses within their allowance — a guardian you pick has to approve"}
               </span>
               <span className="ml-auto flex items-center gap-3">
                 {live ? (

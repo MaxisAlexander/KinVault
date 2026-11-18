@@ -52,12 +52,13 @@ The suite never signs a transaction and never depends on the network.
   collateral on close, and records treasury withdrawals;
 - live mode refuses ledger-only `deposit`, `withdraw`, `openLoan` and
   `repayLoan` actions;
-- live expenses are approved without a ledger debit; only the verified
-  on-chain payment debits the treasury;
+- live expenses stay pending until the chosen approvers sign, then are approved
+  without a ledger debit; only the verified on-chain payment debits the treasury;
 - live lockbox contributions earmark treasury MUSD (the token stays in the
   treasury wallet), and releasing one returns the earmark to the spendable
   treasury balance so guardians can withdraw it to the child's wallet;
-- demo mode still pays instant expenses immediately.
+- demo mode also pays only after the chosen approver signs — nothing is
+  auto-approved at any amount.
 
 ### Real-chain fixtures
 
@@ -158,19 +159,25 @@ server verifies sender, recipient, value and confirmations before crediting.
 
 ### Expense approval and payment
 
-1. **Log expense** for `$42` (under the $100 instant limit).
-2. In live mode the expense is approved immediately but the treasury is **not**
-   debited yet.
-3. As the treasury wallet, click **Pay MUSD** on the approved expense, confirm
+1. **Log expense** for `$42`, tick the approver (for example the father), and
+   submit.
+2. The expense is **pending**, not paid: the card shows `Waiting on <name>` and
+   `0 of 1`. No amount is auto-approved.
+3. Sign in as that approver (or switch member in demo) and click **Approve**.
+   In live mode the expense is now approved but the treasury is **not** debited
+   yet.
+4. As the treasury wallet, click **Pay MUSD** on the approved expense, confirm
    the merchant address, and sign the MUSD transfer.
 
 Expected: the server verifies the treasury as sender, the merchant as recipient,
 the amount, chain and confirmations. Only then does the ledger debit the
 treasury. The expense row shows an **On-chain** explorer link.
 
-For an expense of `$150`, two distinct guardians must approve it first; the
-requester cannot approve their own expense. Approval still does not debit the
-treasury — the verified payment does.
+For a `$150` expense, tick one or more guardians: it completes when **every**
+chosen approver has signed. The requester cannot approve their own expense, and
+a guardian who was not chosen cannot sign or decline it. Rows created before the
+approver picker existed still require two distinct approvals. Approval still
+does not debit the treasury — the verified payment does.
 
 ### Withdraw to a member
 

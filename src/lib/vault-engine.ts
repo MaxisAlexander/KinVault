@@ -76,8 +76,11 @@ export type Expense = {
   note: string;
   date: string;
   status: ExpenseStatus;
-  auto: boolean;
+  /** Legacy flag from the removed instant-approval path. */
+  auto?: boolean;
   approvals: string[];
+  /** Guardians the requester chose to approve this expense. */
+  approvers?: string[];
   /** Allowance rules this expense broke (why it needs approval). */
   flags?: string[];
   /** Optional recipient wallet for the on-chain MUSD settlement. */
@@ -186,6 +189,8 @@ export const vaultActionSchema = z.discriminatedUnion("type", [
     merchant: text(80),
     amount,
     note: text(500),
+    /** Family members the requester is asking to approve. */
+    approverIds: z.array(z.string().min(1).max(64)).min(1).max(6),
   }),
   z.object({ type: z.literal("approveExpense"), expenseId: z.string().min(1).max(64) }),
   z.object({ type: z.literal("rejectExpense"), expenseId: z.string().min(1).max(64) }),
@@ -390,6 +395,19 @@ export function applyAction(l: Ledger, a: VaultAction, ctx: EngineCtx): EngineRe
       const merchant = a.merchant.trim();
       if (!merchant) return fail("Add where the money was spent");
       const value = r2(a.amount);
+      // Every expense is signed by named family members — nothing is paid
+      // instantly. Validate the pick before the request reaches the ledger.
+      const approvers = [...new Set(a.approverIds)].filter((id) => id !== actor.id);
+      if (approvers.length === 0)
+        return fail("Choose at least one family member to approve this expense");
+      const names: string[] = [];
+      for (const id of approvers) {
+        const m = memberOf(l, id);
+        if (!m) return fail("Pick approvers from this family");
+        if (!canApprove(m.role))
+          return fail(`${m.name} can't approve expenses — pick an admin or spouse`);
+        names.push(m.name);
+      }
       const route = routeExpense({
         amount: value,
         category: a.category,
@@ -398,11 +416,6 @@ export function applyAction(l: Ledger, a: VaultAction, ctx: EngineCtx): EngineRe
         allowance: allowanceOf(l, actor.id),
       });
       if (route.route === "blocked") return fail(route.reason);
-      const instant = route.route === "instant";
-      // In a live family the expense is only *approved* here. The treasury's
-      // MUSD leaves when a verified transfer is attached, so never debit twice.
-      const paidNow = instant && !ctx.onchain;
-      if (paidNow && value > l.vault.musd) return fail("Not enough MUSD in the vault");
       const expense: Expense = {
         id: ctx.newId("e"),
         memberId: actor.id,
@@ -411,31 +424,22 @@ export function applyAction(l: Ledger, a: VaultAction, ctx: EngineCtx): EngineRe
         amount: value,
         note: a.note.trim(),
         date: ctx.now.toISOString(),
-        status: instant ? "approved" : "pending",
-        auto: instant,
+        status: "pending",
         approvals: [],
+        approvers,
         flags: route.flags,
       };
       return {
         ok: true,
-        message: instant
-          ? ctx.onchain
-            ? "Approved instantly — settle it from the treasury with MUSD"
-            : "Paid instantly — under the $100 auto-approve limit"
-          : route.flags.length
-            ? `Sent for 2-member approval · ${route.flags[0]}`
-            : "Sent for 2-member approval",
+        message: route.flags.length
+          ? `Sent to ${names.join(" and ")} · ${route.flags[0]}`
+          : `Sent to ${names.join(" and ")} for approval`,
         ledger: {
           ...l,
           expenses: [expense, ...l.expenses],
-          vault: paidNow ? { ...l.vault, musd: l.vault.musd - value } : l.vault,
           activity: withLog(l, ctx, {
             kind: "expense",
-            text: paidNow
-              ? `paid ${merchant} · auto-approved`
-              : instant
-                ? `approved ${merchant} · awaiting on-chain payment`
-                : `requested approval for ${merchant}`,
+            text: `requested approval from ${names.join(" and ")} for ${merchant}`,
             amount: value,
             asset: "MUSD",
             direction: "out",
@@ -453,10 +457,19 @@ export function applyAction(l: Ledger, a: VaultAction, ctx: EngineCtx): EngineRe
         approverId: actor.id,
         approverRole: actor.role,
         existingApprovals: e.approvals,
+        requiredApprovers: e.approvers,
       });
       if (!check.ok) return fail(check.reason!);
       const approvals = [...e.approvals, actor.id];
-      const done = isFullyApproved(approvals);
+      const done = isFullyApproved(approvals, e.approvers);
+      const waitingOn = (e.approvers ?? [])
+        .filter((id) => !approvals.includes(id))
+        .map((id) => memberOf(l, id)?.name ?? "a guardian");
+      // Rows created before the approver picker have no named approvers; they
+      // still need the legacy two distinct signatures.
+      const waiting = e.approvers?.length
+        ? `waiting on ${waitingOn.join(" and ")}`
+        : "one more guardian needed";
       const paidNow = done && !ctx.onchain;
       if (paidNow && e.amount > l.vault.musd)
         return fail("Not enough MUSD in the vault to pay this");
@@ -466,7 +479,7 @@ export function applyAction(l: Ledger, a: VaultAction, ctx: EngineCtx): EngineRe
           ? ctx.onchain
             ? `${e.merchant} approved — settle it from the treasury`
             : `${e.merchant} approved and paid`
-          : "Approval recorded — 1 more needed",
+          : `Approval recorded — ${waiting}`,
         ledger: {
           ...l,
           expenses: l.expenses.map((x) =>
@@ -479,7 +492,7 @@ export function applyAction(l: Ledger, a: VaultAction, ctx: EngineCtx): EngineRe
               ? ctx.onchain
                 ? `gave final approval · ${e.merchant} ready for on-chain payment`
                 : `gave final approval · ${e.merchant} paid`
-              : `approved ${e.merchant} (${approvals.length} of 2)`,
+              : `approved ${e.merchant} · ${waiting}`,
             amount: done ? e.amount : undefined,
             asset: done ? "MUSD" : undefined,
             direction: done ? "out" : undefined,
@@ -492,6 +505,8 @@ export function applyAction(l: Ledger, a: VaultAction, ctx: EngineCtx): EngineRe
       const e = l.expenses.find((x) => x.id === a.expenseId);
       if (!e || e.status !== "pending") return fail("This expense is no longer pending");
       if (!guardian) return fail("Only admins and spouses can decline");
+      if (e.approvers?.length && !e.approvers.includes(actor.id))
+        return fail("This expense was sent to another family member to approve");
       return {
         ok: true,
         message: "Expense declined",

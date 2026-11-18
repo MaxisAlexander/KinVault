@@ -278,9 +278,17 @@ export const actions = {
     return run({ type: "withdraw", ...p });
   },
 
-  addExpense(p: { category: Category; merchant: string; amount: number; note: string }): Result {
+  addExpense(p: {
+    category: Category;
+    merchant: string;
+    amount: number;
+    note: string;
+    approverIds: string[];
+  }): Result {
     if (!(p.amount > 0)) return { ok: false, message: "Enter an amount above zero" };
     if (!p.merchant.trim()) return { ok: false, message: "Add where the money was spent" };
+    if (p.approverIds.length === 0)
+      return { ok: false, message: "Choose who should approve this expense" };
     return run({ type: "addExpense", ...p });
   },
 

@@ -57,8 +57,9 @@ mezo live check: ok
 
 - The product solves a concrete household problem: pay for family life and
   borrow for big moments without selling Bitcoin.
-- Two-approval spending rules, per-member allowances, freeze/unfreeze and
-  guardian lockboxes are implemented as pure, tested rules.
+- Requester-chosen spending approvals (no auto-approve at any amount),
+  per-member allowances, freeze/unfreeze and guardian lockboxes are implemented
+  as pure, tested rules.
 - The treasury is a real Mezo Testnet wallet; KinVault never holds a key.
 - A written business model — who pays, what they buy, three revenue paths, and
   the honest dependency on Mezo getting a fiat on-ramp — is in
@@ -104,8 +105,8 @@ mezo live check: ok
 Stated up front, because a judge will find them anyway and discovery costs more
 than disclosure.
 
-1. **The treasury is a single EOA.** The "two guardians must approve" rule is
-   enforced by this application and the server ledger, not by the chain. The
+1. **The treasury is a single EOA.** The "your chosen guardians must approve"
+   rule is enforced by this application and the server ledger, not by the chain. The
    treasury key holder could bypass KinVault and move MUSD directly. The rule is
    real for everyone using the app and not a cryptographic guarantee against the
    key holder. Replacing the EOA with a 2-of-3 Safe is the first roadmap item.
@@ -134,6 +135,7 @@ fixed rather than argued with:
 | Troves settled on 1 confirmation | Opens/repayments now require 3 confirmations (`REQUIRED_TROVE_CONFIRMATIONS`), with a regression test at 2 |
 | 6.5% APY could be misread as protocol yield | Demo stat relabelled "Simulated yield · demo only — Mezo does not pay this yield"; live mode unchanged (already yield-free) |
 | Approvals could be read as chain-enforced | Spending page now states in live mode that approvals are server-ledger-enforced, not chain-enforced |
+| Under-$100 expenses auto-approved without a family signature | Instant approval removed: the requester names the approvers (e.g. Dad), every chosen approver must sign, and a sub-$100 expense stays pending until they do; legacy rows still need two distinct approvals |
 | README carried screenshots and a demo-video section | Removed; README now leads with on-chain claims, evidence and current status |
 | Wallet disconnected on every page refresh | The address is remembered and restored silently through `eth_accounts` (no popup, no signature); 4 tests in `src/lib/wallet.test.ts` |
 | Header BTC price could show the demo constant in live mode | Header reads Mezo `PriceFeed.fetchPrice()` with a live/stale dot and tooltip; the vault price is only a fallback while the RPC loads |
@@ -150,9 +152,10 @@ narrated). It covers:
    paths (email, Google, wallet signature).
 2. **0:28–0:58** — Dashboard, deposits and withdrawals, member sub-accounts,
    roles and the acting-as switcher, and onboarding/invite codes.
-3. **0:58–1:25** — Two-approval spending, the under-$100 auto-approve rule,
-   expense logging, filters and charts; the loan calculator, LTV and stress
-   sliders, borrow, repay and repay-in-full.
+3. **0:58–1:25** — Requester-chosen approvals (nothing auto-approves, and the
+   requester picks the father or another guardian), expense logging, filters and
+   charts; the loan calculator, LTV and stress sliders, borrow, repay and
+   repay-in-full.
 4. **1:25–1:56** — Lockboxes, letters, guardian signatures, contributions, a new
    lockbox, and hash-chained receipts with Mezo block heights.
 5. **1:56–2:19** — The server-side verification model and the close.

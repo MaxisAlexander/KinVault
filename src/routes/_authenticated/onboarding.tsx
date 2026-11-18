@@ -198,7 +198,7 @@ function CreateForm() {
           </div>
           <div className="flex gap-1.5">
             <dt className="font-semibold text-foreground">Teen</dt>
-            <dd>$50/day, more needs 2 approvals</dd>
+            <dd>$50/day, and a guardian they pick must approve</dd>
           </div>
           <div className="flex gap-1.5">
             <dt className="font-semibold text-foreground">Kid</dt>

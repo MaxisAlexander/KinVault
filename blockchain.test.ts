@@ -777,25 +777,50 @@ describe("live mode value rules", () => {
     }
   });
 
-  it("approves an instant expense without debiting the ledger", () => {
+  it("keeps a sub-$100 expense pending until the chosen approver signs", () => {
     const start: Ledger = { ...baseLedger(), vault: { ...baseLedger().vault, musd: 500 } };
-    const result = applyAction(
+    const requested = applyAction(
       start,
-      { type: "addExpense", category: "Groceries", merchant: "Test Mart", amount: 42, note: "" },
+      {
+        type: "addExpense",
+        category: "Groceries",
+        merchant: "Test Mart",
+        amount: 42,
+        note: "",
+        approverIds: ["m2"],
+      },
       ctx(true),
     );
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.ledger.expenses[0]?.status).toBe("approved");
-    expect(result.ledger.vault.musd).toBe(500);
-    expect(result.message).toMatch(/settle/i);
+    expect(requested.ok).toBe(true);
+    if (!requested.ok) return;
+    expect(requested.ledger.expenses[0]?.status).toBe("pending");
+    expect(requested.ledger.vault.musd).toBe(500);
+
+    const expenseId = requested.ledger.expenses[0]!.id;
+    const approved = applyAction(
+      requested.ledger,
+      { type: "approveExpense", expenseId },
+      { ...ctx(true), actorId: "m2" },
+    );
+    expect(approved.ok).toBe(true);
+    if (!approved.ok) return;
+    expect(approved.ledger.expenses[0]?.status).toBe("approved");
+    expect(approved.ledger.vault.musd).toBe(500);
+    expect(approved.message).toMatch(/settle/i);
   });
 
   it("records final approval without debiting until the on-chain payment", () => {
     const start: Ledger = { ...baseLedger(), vault: { ...baseLedger().vault, musd: 500 } };
     const requested = applyAction(
       start,
-      { type: "addExpense", category: "Home", merchant: "Test Depot", amount: 150, note: "" },
+      {
+        type: "addExpense",
+        category: "Home",
+        merchant: "Test Depot",
+        amount: 150,
+        note: "",
+        approverIds: ["m2", "m3"],
+      },
       ctx(true),
     );
     expect(requested.ok).toBe(true);
@@ -823,16 +848,34 @@ describe("live mode value rules", () => {
     expect(final.message).toMatch(/settle/i);
   });
 
-  it("still pays instantly in demo mode", () => {
+  it("pays from the vault once the chosen approver signs in demo mode", () => {
     const start: Ledger = { ...baseLedger(), vault: { ...baseLedger().vault, musd: 500 } };
-    const result = applyAction(
+    const requested = applyAction(
       start,
-      { type: "addExpense", category: "Groceries", merchant: "Test Mart", amount: 42, note: "" },
+      {
+        type: "addExpense",
+        category: "Groceries",
+        merchant: "Test Mart",
+        amount: 42,
+        note: "",
+        approverIds: ["m2"],
+      },
       ctx(false),
     );
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.ledger.vault.musd).toBe(458);
+    expect(requested.ok).toBe(true);
+    if (!requested.ok) return;
+    expect(requested.ledger.vault.musd).toBe(500);
+
+    const expenseId = requested.ledger.expenses[0]!.id;
+    const approved = applyAction(
+      requested.ledger,
+      { type: "approveExpense", expenseId },
+      { ...ctx(false), actorId: "m2" },
+    );
+    expect(approved.ok).toBe(true);
+    if (!approved.ok) return;
+    expect(approved.ledger.expenses[0]?.status).toBe("approved");
+    expect(approved.ledger.vault.musd).toBe(458);
   });
 
   it("earmarks treasury MUSD for a lockbox without pretending it left the treasury", () => {

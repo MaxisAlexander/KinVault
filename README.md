@@ -2,8 +2,9 @@
 
 KinVault is a household finance app for families who hold **BTC** and **MUSD** on
 [Mezo](https://mezo.org). Up to six family members share a vault, pay for everyday
-life in MUSD under two-approval rules, and borrow MUSD against BTC through Mezo's
-own `BorrowerOperations` rather than selling the Bitcoin.
+life in MUSD only after the family members they name approve it, and borrow MUSD
+against BTC through Mezo's own `BorrowerOperations` rather than selling the
+Bitcoin.
 
 > **North star:** families pay for household life and their children's futures
 > without selling their Bitcoin.
@@ -153,11 +154,12 @@ Key decisions:
 
 All rules are pure functions in `src/lib/vault-logic.ts`:
 
-| Rule                      | Value                                                         |
-| ------------------------- | ------------------------------------------------------------- |
-| Instant expense           | strictly under **$100 MUSD**                                  |
-| Larger expense            | **2 distinct approvals** from admin/spouse, not the requester |
-| Roles                     | admin/spouse approve; teen/kid cannot                         |
+| Rule                      | Value                                                                     |
+| ------------------------- | ------------------------------------------------------------------------- |
+| Expense approval          | requester names the approvers; every chosen admin/spouse must sign         |
+| Nothing auto-approves     | no amount is paid without at least one named approver signing             |
+| Legacy expense            | rows with no named approvers need 2 distinct approvals                    |
+| Roles                     | admin/spouse approve; teen/kid cannot                                     |
 | Default allowances        | teen $50/day; kid $15/day and School/Groceries only           |
 | Family size               | max 6                                                         |
 | Trove MCR                 | 110% (protocol)                                               |
@@ -277,8 +279,8 @@ push (`.github/workflows/ci.yml`).
 - repayment verification from MUSD burn logs, including `closeTrove()`
 - ledger bridge: MUSD/BTC deposits, expense settlement debit, withdrawals,
   trove open/repay and hash-chain integrity
-- live mode refusing ledger-only value movements and demo mode still paying
-  instant expenses
+- live mode refusing ledger-only value movements and demo mode paying only after
+  the chosen approver signs
 
 `src/lib/chain/verify.fixtures.test.ts` replays real Mezo Testnet receipts
 recorded in `src/test/fixtures/mezo-receipts.json`, and
@@ -314,7 +316,7 @@ These are real, and they are stated here rather than left to be discovered.
 **The treasury is a single EOA, so the two-signature rule is enforced by this app,
 not by the chain.** `families.treasury_address` is one wallet, and only that
 wallet can settle an expense, withdraw or open a trove
-(`src/lib/family.functions.ts`). The "two guardians must approve" rule lives in
+(`src/lib/family.functions.ts`). The "your chosen guardians must approve" rule lives in
 `src/lib/vault-logic.ts` and the server ledger: the key holder could bypass
 KinVault entirely and send MUSD from the treasury wallet with any wallet client.
 The rule is genuine for everyone using the app and worthless against the key

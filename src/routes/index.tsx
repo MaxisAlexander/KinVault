@@ -69,7 +69,7 @@ const FEATURES = [
   {
     icon: ShieldCheck,
     title: "Spending with guardrails",
-    body: "Groceries under $100 clear instantly. Anything bigger waits for two family members to approve.",
+    body: "Every expense waits for the family members you name — Dad, Mum, or both — before a single MUSD leaves the vault.",
   },
   {
     icon: Landmark,

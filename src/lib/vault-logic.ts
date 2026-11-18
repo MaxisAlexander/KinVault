@@ -2,9 +2,12 @@
 
 export type Role = "admin" | "spouse" | "teen" | "kid";
 
-/** Expenses strictly below this amount (MUSD) are approved instantly. */
-export const AUTO_APPROVE_LIMIT = 100;
-/** Approvals needed from eligible family members for larger expenses. */
+/**
+ * Legacy fallback: an expense with no chosen approvers (rows written before the
+ * approver picker existed) still needs this many distinct guardian approvals.
+ * New expenses name their approvers explicitly and are complete when every one
+ * of them has approved.
+ */
 export const REQUIRED_APPROVALS = 2;
 /** Guardian signatures needed to release a matured lockbox. */
 export const REQUIRED_GUARDIAN_SIGNATURES = 2;
@@ -23,33 +26,40 @@ export function canApprove(role: Role): boolean {
   return role === "admin" || role === "spouse";
 }
 
-export function isAutoApproved(amount: number): boolean {
-  return amount < AUTO_APPROVE_LIMIT;
-}
-
 export type ApprovalCheck = {
   ok: boolean;
   reason?: string;
 };
 
-/** Can `approverId` (with `approverRole`) add an approval to an expense requested by `requesterId`? */
+/**
+ * Can `approverId` (with `approverRole`) add an approval to an expense requested
+ * by `requesterId`? When the requester named approvers, only those can sign.
+ */
 export function checkApproval(params: {
   requesterId: string;
   approverId: string;
   approverRole: Role;
   existingApprovals: string[];
+  /** Members the requester chose to approve. Empty/undefined = any guardian. */
+  requiredApprovers?: string[] | undefined;
 }): ApprovalCheck {
-  const { requesterId, approverId, approverRole, existingApprovals } = params;
+  const { requesterId, approverId, approverRole, existingApprovals, requiredApprovers } = params;
   if (!canApprove(approverRole))
     return { ok: false, reason: "Only admins and spouses can approve" };
   if (approverId === requesterId)
     return { ok: false, reason: "You can't approve your own expense" };
+  if (requiredApprovers && requiredApprovers.length > 0 && !requiredApprovers.includes(approverId))
+    return { ok: false, reason: "This expense was sent to another family member to approve" };
   if (existingApprovals.includes(approverId)) return { ok: false, reason: "Already approved" };
   return { ok: true };
 }
 
-export function isFullyApproved(approvals: string[]): boolean {
-  return new Set(approvals).size >= REQUIRED_APPROVALS;
+/** Complete when every chosen approver has signed (or 2 distinct, for legacy rows). */
+export function isFullyApproved(approvals: string[], requiredApprovers?: string[]): boolean {
+  const unique = new Set(approvals);
+  if (requiredApprovers && requiredApprovers.length > 0)
+    return requiredApprovers.every((id) => unique.has(id));
+  return unique.size >= REQUIRED_APPROVALS;
 }
 
 // ---------- Loans ----------
@@ -212,14 +222,12 @@ export function checkCategoryAllowed(category: string, allowed: string[] | null)
 }
 
 export type ExpenseRoute =
-  | { route: "instant"; flags: string[] }
-  | { route: "approval"; flags: string[] }
-  | { route: "blocked"; flags: string[]; reason: string };
+  { route: "approval"; flags: string[] } | { route: "blocked"; flags: string[]; reason: string };
 
 /**
- * Decide what happens to a new expense:
- * frozen vault -> blocked; under $100 with no allowance flags -> paid instantly;
- * otherwise it waits for 2 approvals, carrying any allowance flags.
+ * Decide what happens to a new expense: a frozen vault blocks it, otherwise it
+ * always waits for the approvers the requester chose. There is no instant path —
+ * every expense needs at least one named family member to sign it.
  */
 export function routeExpense(p: {
   amount: number;
@@ -239,7 +247,6 @@ export function routeExpense(p: {
   if (!v.ok) flags.push(v.reason!);
   const c = checkCategoryAllowed(p.category, p.allowance.categories);
   if (!c.ok) flags.push(c.reason!);
-  if (isAutoApproved(p.amount) && flags.length === 0) return { route: "instant", flags };
   return { route: "approval", flags };
 }
 

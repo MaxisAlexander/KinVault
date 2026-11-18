@@ -20,7 +20,7 @@ import { MoneyDialog } from "@/components/vault/money-dialogs";
 import { FundVaultDialog, WithdrawDialog } from "@/components/vault/onchain-dialogs";
 import { readNativeBalance, readTokenBalance } from "@/lib/chain/client";
 import { MUSD, explorerAddressUrl, shortAddress } from "@/lib/chain/config";
-import { btc, usd } from "@/lib/format";
+import { btc, familyLabel, usd } from "@/lib/format";
 import { MUSD_SAVINGS_APY } from "@/lib/vault-logic";
 import { useVault } from "@/lib/vault-store";
 import { cn } from "@/lib/utils";
@@ -164,7 +164,7 @@ function Dashboard() {
   return (
     <AppShell>
       <PageHeader
-        eyebrow={mode === "live" ? `${familyName} Family Vault` : "Rivera Family Vault"}
+        eyebrow={mode === "live" ? familyLabel(familyName) : "Rivera Family Vault"}
         title="Good morning, family"
         subtitle="Everything the household owns together — Bitcoin reserve, MUSD for daily life, and what each of you has put in."
         actions={
@@ -268,7 +268,7 @@ function Dashboard() {
             <span className="font-bold">
               {pendingCount} expense{pendingCount > 1 ? "s" : ""} waiting
             </span>{" "}
-            <span className="text-muted-foreground">for 2-member approval</span>
+            <span className="text-muted-foreground">for the approvers you chose</span>
           </span>
           <span className="flex items-center gap-1 font-semibold text-warning">
             Review <ArrowRight className="h-4 w-4" />

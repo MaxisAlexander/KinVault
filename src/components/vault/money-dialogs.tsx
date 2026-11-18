@@ -23,7 +23,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { btc, usd } from "@/lib/format";
-import { AUTO_APPROVE_LIMIT } from "@/lib/vault-logic";
+import { canApprove } from "@/lib/vault-logic";
 import {
   CATEGORIES,
   actions,
@@ -219,22 +219,42 @@ export function MoneyDialog({
 export function ExpenseDialog({ trigger }: { trigger: ReactNode }) {
   const actingId = useVault((s) => s.actingId);
   const isLive = useVault((s) => s.mode === "live");
+  const members = useVault((s) => s.members);
   const [open, setOpen] = useState(false);
   const me = useVault((s) => memberById(s, actingId));
   const [category, setCategory] = useState<Category>("Groceries");
   const [merchant, setMerchant] = useState("");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  // Guardians who could sign this request. The requester can't approve their
+  // own expense, so they never appear here.
+  const candidates = members.filter((m) => canApprove(m.role) && m.id !== actingId);
+  const [approverIds, setApproverIds] = useState<string[]>([]);
   const n = parseFloat(amount) || 0;
 
+  function reset() {
+    setMerchant("");
+    setAmount("");
+    setNote("");
+    setApproverIds([]);
+  }
+
+  function toggleApprover(id: string) {
+    setApproverIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  }
+
   function submit() {
-    const r = actions.addExpense({ category, merchant, amount: n, note });
+    const r = actions.addExpense({
+      category,
+      merchant,
+      amount: n,
+      note,
+      approverIds,
+    });
     if (r.ok) {
       toast.success(r.message);
       setOpen(false);
-      setMerchant("");
-      setAmount("");
-      setNote("");
+      reset();
     } else toast.error(r.message);
   }
 
@@ -243,6 +263,7 @@ export function ExpenseDialog({ trigger }: { trigger: ReactNode }) {
       open={open}
       onOpenChange={(o) => {
         setOpen(o);
+        if (o) setApproverIds([]);
       }}
     >
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -251,8 +272,8 @@ export function ExpenseDialog({ trigger }: { trigger: ReactNode }) {
           <DialogTitle className="text-xl font-bold">Log an expense</DialogTitle>
           <DialogDescription>
             {isLive
-              ? "Approved here, then settled from the family treasury with a verified Mezo Testnet transfer."
-              : "Paid from the shared vault in MUSD."}
+              ? "Your chosen family members approve it here, then the treasury settles it with a verified Mezo Testnet transfer."
+              : "Your chosen family members approve it before the shared vault pays."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -300,20 +321,46 @@ export function ExpenseDialog({ trigger }: { trigger: ReactNode }) {
               className="h-12 rounded-xl text-lg font-semibold tabular"
             />
             {n > 0 && (
-              <p
-                className={cn(
-                  "rounded-lg px-3 py-2 text-xs font-semibold",
-                  n < AUTO_APPROVE_LIMIT
-                    ? "bg-mint text-mint-foreground"
-                    : "bg-warning-soft text-warning",
-                )}
-              >
-                {n < AUTO_APPROVE_LIMIT
-                  ? isLive
-                    ? "Under $100 — approved instantly, then paid on Mezo Testnet."
-                    : "Under $100 — this will be paid instantly."
-                  : "$100 or more — 2 family members will need to approve."}
+              <p className="rounded-lg bg-warning-soft px-3 py-2 text-xs font-semibold text-warning">
+                Every expense needs approval — no instant payouts.
               </p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>Who approves?</Label>
+            {candidates.length === 0 ? (
+              <p className="rounded-lg bg-warning-soft px-3 py-2 text-xs font-semibold text-warning">
+                You&apos;re the only guardian in this family. Add another admin or spouse so someone
+                can approve what you log.
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {candidates.map((m) => {
+                    const on = approverIds.includes(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => toggleApprover(m.id)}
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                          on
+                            ? "border-transparent bg-primary text-primary-foreground"
+                            : "border-border bg-background text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        {m.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {approverIds.length === 0
+                    ? "Pick at least one family member to approve this expense."
+                    : `${approverIds.length === 1 ? "This member approves" : "All of these members must approve"} before anything is paid.`}
+                </p>
+              </>
             )}
           </div>
           <div className="space-y-2">
@@ -329,12 +376,13 @@ export function ExpenseDialog({ trigger }: { trigger: ReactNode }) {
           </div>
         </div>
         <DialogFooter>
-          <Button size="lg" className="w-full" onClick={submit}>
-            {n >= AUTO_APPROVE_LIMIT
-              ? "Request approval"
-              : isLive
-                ? "Approve expense"
-                : "Pay from vault"}
+          <Button
+            size="lg"
+            className="w-full"
+            onClick={submit}
+            disabled={approverIds.length === 0 || !merchant.trim() || !(n > 0)}
+          >
+            Request approval
           </Button>
         </DialogFooter>
       </DialogContent>

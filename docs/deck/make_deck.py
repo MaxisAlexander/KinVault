@@ -583,7 +583,7 @@ def slide_mezo(total: int) -> Image.Image:
         d.text((fx + 300, y), v, font=f(MONO, 15), fill=WHITE)
     d.text(
         (fx + 34, fy + fh - 42),
-        "Read live by scripts/mezo-live-check.ts",
+        "Read live by scripts/mezo-live-check.ts  ·  replayed against real receipts",
         font=f(MONO, 12),
         fill=DIM,
     )
@@ -601,7 +601,10 @@ def slide_security(total: int) -> Image.Image:
     x = 1310
     bullets = [
         ("Only the hash is sent", "The browser never posts an amount or a recipient it could invent."),
-        ("Receipts are decoded", "Token, sender, recipient, amount, chain and confirmations."),
+        (
+            "Receipts are decoded",
+            "Token, sender, recipient, amount, chain and confirmations — replayed against real testnet receipts.",
+        ),
         ("Replay-proof", "tx_hash is the primary key; a replayed transaction fails."),
         ("No keys held", "The treasury wallet signs. KinVault never custodies funds."),
     ]
@@ -611,7 +614,22 @@ def slide_security(total: int) -> Image.Image:
         draw_check(d, x + 15, y + 13, 6)
         d.text((x + 46, y - 4), title, font=f(SEMI, 21), fill=WHITE)
         paragraph(d, x + 46, y + 30, 470, body, f(REG, 16), MUTED, 23)
-        y += 176
+        y += 150
+
+    # Disclosed, not implied away: the approval rule is app-level today.
+    d.text((x, 790), "DISCLOSED LIMITATION", font=f(MONO_B, 12), fill=DIM)
+    paragraph(
+        d,
+        x,
+        814,
+        500,
+        "The treasury is one wallet, so two-guardian approvals are enforced by KinVault's server "
+        "ledger, not by the chain — the key holder could bypass the app. Moving the treasury to a "
+        "2-of-3 Safe is the first roadmap item.",
+        f(REG, 15),
+        MUTED,
+        21,
+    )
     return img
 
 
@@ -671,9 +689,9 @@ def slide_business(total: int) -> Image.Image:
     slide_title(d, "Small recurring revenue,\naligned with families.", 200, 54)
 
     cards = [
-        ("$5 / month", "per family vault, up to six seats."),
+        ("$4 / month", "per family vault, up to six seats."),
         ("0.25%", "origination fee on MUSD borrowed, proposed."),
-        ("Premium", "legacy letters, extra guardians, priority support."),
+        ("White label", "wallets and credit unions license the policy engine."),
     ]
     for i, (title, body) in enumerate(cards):
         y = 392 + i * 176
@@ -691,7 +709,7 @@ def slide_business(total: int) -> Image.Image:
     ty = 392
     d.line([(tx + 10, ty + 10), (tx + 10, 900)], fill=(31, 88, 67), width=2)
     roadmap = [
-        ("Now", "Mezo Testnet MVP", "Demo + live read path, 58 tests, public repo."),
+        ("Now", "Mezo Testnet MVP", "Demo + live read path, 89 tests, public repo."),
         ("Q1 2027", "Security review + mainnet beta", "Audit, Safe treasury, monitoring, incident runbook."),
         ("Q2 2027", "Family controls", "Allowances, freeze, mobile app, fiat on-ramp."),
         ("2027+", "Distribution", "Credit unions, Bitcoin wallets and family advisors."),

@@ -66,6 +66,29 @@ export function hasLegacyInjectedWallet() {
   );
 }
 
+/** The last connected address, so a page refresh does not drop the wallet. */
+const WALLET_KEY = "kinvault:wallet-address";
+
+function rememberedAddress(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(WALLET_KEY);
+    return raw && /^0x[0-9a-fA-F]{40}$/.test(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberAddress(address: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (address) window.localStorage.setItem(WALLET_KEY, address.toLowerCase());
+    else window.localStorage.removeItem(WALLET_KEY);
+  } catch {
+    // Private mode: staying connected for this tab is still fine.
+  }
+}
+
 export type WalletState = {
   status: "idle" | "connecting" | "connected" | "unavailable";
   address: string | null;
@@ -130,7 +153,8 @@ function wireEvents(p: Eip1193) {
   wired = true;
   p.on("accountsChanged", (accs) => {
     const a = (accs as string[])[0] ?? null;
-    if (!a)
+    if (!a) {
+      rememberAddress(null);
       set({
         status: "idle",
         address: null,
@@ -138,7 +162,8 @@ function wireEvents(p: Eip1193) {
         balanceMusd: null,
         balanceMezo: null,
       });
-    else {
+    } else {
+      rememberAddress(a);
       set({ address: a });
       void refreshBalances(a);
     }
@@ -174,6 +199,7 @@ export async function connectWallet(chosen?: Eip1193) {
     const chainHex = (await p.request({ method: "eth_chainId" })) as string;
     const address = accs[0] ?? null;
     const chainId = parseInt(chainHex, 16);
+    rememberAddress(address);
     set({ status: address ? "connected" : "idle", address, chainId });
     wireEvents(p);
     if (address) {
@@ -217,7 +243,35 @@ export async function signMessage(message: string): Promise<string> {
   return (await p.request({ method: "personal_sign", params: [hex, state.address] })) as string;
 }
 
+/**
+ * Silently restores the previous session after a page refresh. Uses
+ * `eth_accounts` (no wallet popup): it only succeeds when the user previously
+ * authorized this site and has not revoked it. Call once on app start.
+ */
+export async function restoreWalletSession(): Promise<boolean> {
+  if (typeof window === "undefined" || state.status === "connected") {
+    return state.status === "connected";
+  }
+  const saved = rememberedAddress();
+  if (!saved) return false;
+  const p = provider();
+  if (!p) return false;
+  try {
+    const accs = (await p.request({ method: "eth_accounts" })) as string[];
+    const match = accs.find((a) => a.toLowerCase() === saved) ?? null;
+    if (!match) return false;
+    const chainHex = (await p.request({ method: "eth_chainId" })) as string;
+    wireEvents(p);
+    set({ status: "connected", address: match, chainId: parseInt(chainHex, 16), error: null });
+    void refreshBalances(match);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function disconnectWallet() {
+  rememberAddress(null);
   set({
     status: "idle",
     address: null,

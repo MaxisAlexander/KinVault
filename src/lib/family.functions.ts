@@ -468,6 +468,34 @@ export const linkWallet = createServerFn({ method: "POST" })
     return srv.buildPayload(context.userId, context.supabase);
   });
 
+/**
+ * Designates the family treasury. Admin only, and only while it is still unset:
+ * the ledger starts at zero, so moving an existing treasury elsewhere would
+ * desync the app from the chain. Setting your own wallet is allowed — a family
+ * whose treasury is the admin's wallet does not have to fund through this
+ * dialog, and the on-chain balance is shown read-only on the dashboard.
+ */
+export const setTreasuryAddress = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ address: addressSchema }).parse(input))
+  .handler(async ({ data, context }) => {
+    const srv = await import("./family.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const me = await srv.findMembership(context.userId);
+    if (!me) throw new Error("You're not in a family vault yet");
+    if (me.role !== "admin") throw new Error("Only an admin can set the family treasury");
+    const fam = await srv.loadFamily(me.family_id);
+    if (fam.treasury_address) throw new Error("This family already has a treasury wallet");
+
+    const { error } = await supabaseAdmin
+      .from("families")
+      .update({ treasury_address: data.address.toLowerCase() })
+      .eq("id", fam.id);
+    if (error) throw new Error("Could not save the treasury address");
+    return srv.buildPayload(context.userId, context.supabase);
+  });
+
 export const unlinkWallet = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {

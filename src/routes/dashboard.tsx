@@ -1,10 +1,13 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { formatEther, formatUnits } from "viem";
 import {
   ArrowDownLeft,
   ArrowRight,
   ArrowUpRight,
   Bitcoin,
   Coins,
+  ExternalLink,
   Landmark,
   Sparkles,
 } from "lucide-react";
@@ -15,6 +18,8 @@ import { AppShell, PageHeader, Panel } from "@/components/vault/app-shell";
 import { MemberAvatar, RoleBadge, toneBg } from "@/components/vault/member-avatar";
 import { MoneyDialog } from "@/components/vault/money-dialogs";
 import { FundVaultDialog, WithdrawDialog } from "@/components/vault/onchain-dialogs";
+import { readNativeBalance, readTokenBalance } from "@/lib/chain/client";
+import { MUSD, explorerAddressUrl, shortAddress } from "@/lib/chain/config";
 import { btc, usd } from "@/lib/format";
 import { MUSD_SAVINGS_APY } from "@/lib/vault-logic";
 import { useVault } from "@/lib/vault-store";
@@ -77,6 +82,62 @@ function Stat({
   );
 }
 
+/**
+ * Read-only view of what the treasury actually holds on Mezo Testnet. The
+ * KinVault ledger only counts funds that moved through the app, so a treasury
+ * funded outside KinVault would otherwise look empty here.
+ */
+function OnchainTreasury({ address }: { address: string }) {
+  const [balances, setBalances] = useState<{ musd: number; btc: number } | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setBalances(null);
+    setFailed(false);
+    void Promise.all([
+      readTokenBalance(MUSD.address, address as `0x${string}`),
+      readNativeBalance(address as `0x${string}`),
+    ])
+      .then(([musdWei, btcWei]) => {
+        if (!alive) return;
+        setBalances({ musd: Number(formatUnits(musdWei, 18)), btc: Number(formatEther(btcWei)) });
+      })
+      .catch(() => {
+        if (alive) setFailed(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [address]);
+
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-border bg-card px-5 py-3 text-xs">
+      <span className="font-semibold">On-chain treasury (read from Mezo)</span>
+      {balances ? (
+        <span className="font-semibold tabular">
+          {usd(balances.musd, { round: true })} MUSD · {btc(balances.btc)}
+        </span>
+      ) : (
+        <span className="text-muted-foreground">
+          {failed ? "Mezo RPC unreachable" : "Reading…"}
+        </span>
+      )}
+      <a
+        href={explorerAddressUrl(address)}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+      >
+        {shortAddress(address)} <ExternalLink className="h-3 w-3" />
+      </a>
+      <span className="text-muted-foreground">
+        KinVault&apos;s ledger counts only funds moved through the app.
+      </span>
+    </div>
+  );
+}
+
 function Dashboard() {
   const vault = useVault((s) => s.vault);
   const price = useVault((s) => s.btcPrice);
@@ -84,6 +145,7 @@ function Dashboard() {
   const loans = useVault((s) => s.loans);
   const mode = useVault((s) => s.mode);
   const familyName = useVault((s) => s.familyName);
+  const treasuryAddress = useVault((s) => s.treasuryAddress);
   const pendingCount = useVault((s) =>
     s.expenses.reduce((n, e) => n + (e.status === "pending" ? 1 : 0), 0),
   );
@@ -194,6 +256,8 @@ function Dashboard() {
           icon={Landmark}
         />
       </div>
+
+      {mode === "live" && treasuryAddress && <OnchainTreasury address={treasuryAddress} />}
 
       {pendingCount > 0 && (
         <Link

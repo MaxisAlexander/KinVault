@@ -1,7 +1,15 @@
 import { useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowDownToLine, ArrowUpRight, ExternalLink, Loader2, Wallet } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowLeftRight,
+  ArrowUpRight,
+  Copy,
+  ExternalLink,
+  Loader2,
+  Wallet,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -23,17 +31,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DEMO_MERCHANT_ADDRESS, explorerTxUrl, shortAddress } from "@/lib/chain/config";
+import {
+  DEMO_MERCHANT_ADDRESS,
+  explorerAddressUrl,
+  explorerTxUrl,
+  shortAddress,
+} from "@/lib/chain/config";
 import { getInjectedProvider, sendMusd, sendNativeBtc } from "@/lib/chain/transactions";
 import {
   confirmBtcDeposit,
   confirmExpensePayment,
   confirmMusdDeposit,
   confirmWithdrawal,
+  setTreasuryAddress,
 } from "@/lib/family.functions";
 import { toastError } from "@/lib/errors";
 import { actions, memberById, useVault, type Expense } from "@/lib/vault-store";
-import { connectWallet, getWalletState, useWallet } from "@/lib/wallet";
+import { connectWallet, disconnectWallet, getWalletState, useWallet } from "@/lib/wallet";
 
 type Payload = Awaited<ReturnType<typeof confirmMusdDeposit>>;
 
@@ -71,6 +85,7 @@ export function FundVaultDialog({
   const queryClient = useQueryClient();
   const confirmMusd = useServerFn(confirmMusdDeposit);
   const confirmBtc = useServerFn(confirmBtcDeposit);
+  const saveTreasury = useServerFn(setTreasuryAddress);
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [treasuryInput, setTreasuryInput] = useState("");
@@ -143,6 +158,26 @@ export function FundVaultDialog({
 
   const available = asset === "MUSD" ? wallet.balanceMusd : wallet.balanceBtc;
 
+  /** Designates the connected wallet as the treasury, without moving funds. */
+  async function saveWalletAsTreasury() {
+    if (!wallet.address) return;
+    setBusy(true);
+    try {
+      const payload = await saveTreasury({ data: { address: wallet.address } });
+      if (payload) actions.hydrateLive(payload);
+      setTreasuryInput(wallet.address);
+      await queryClient.invalidateQueries();
+      toast.success("Treasury wallet saved", {
+        description:
+          "Funds already at this address are shown on the dashboard; deposits made through KinVault are credited to the ledger.",
+      });
+    } catch (error) {
+      toastError(error, "Could not save the treasury address");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Dialog
       open={open}
@@ -164,8 +199,32 @@ export function FundVaultDialog({
           <div className="rounded-xl border border-border bg-surface p-3 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Treasury</span>
-              <span className="font-mono text-xs">
+              <span className="flex items-center gap-1.5 font-mono text-xs">
                 {treasury ? shortAddress(treasury) : "Not set"}
+                {treasury && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Copy the treasury address"
+                      className="text-muted-foreground transition-colors hover:text-foreground"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(treasury);
+                        toast.success("Treasury address copied");
+                      }}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </button>
+                    <a
+                      href={explorerAddressUrl(treasury)}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="Open the treasury on the Mezo explorer"
+                      className="text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </>
+                )}
               </span>
             </div>
             <div className="mt-1 flex justify-between">
@@ -192,15 +251,44 @@ export function FundVaultDialog({
               <p className="text-xs text-muted-foreground">
                 Only an admin can set this on the first deposit. It must be a different wallet from
                 the one you are sending from — use a second test wallet so the transfer actually
-                moves value.
+                moves value. If this wallet already holds the family&apos;s test BTC and MUSD, save
+                it as the treasury instead.
               </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 w-full gap-1.5"
+                disabled={!wallet.address || busy}
+                onClick={() => void saveWalletAsTreasury()}
+              >
+                {busy ? <Loader2 className="animate-spin" /> : <Wallet className="h-4 w-4" />}
+                Use my connected wallet as the treasury
+              </Button>
             </div>
           )}
           {sendingFromTreasury && (
-            <p className="rounded-lg bg-warning-soft px-3 py-2 text-xs font-semibold text-warning">
-              This wallet is the family treasury. Sending {asset} to itself moves nothing, so the
-              server will reject it. Switch to a member wallet to add funds.
-            </p>
+            <div className="space-y-2 rounded-lg bg-warning-soft px-3 py-2.5 text-xs text-warning">
+              <p className="font-semibold">
+                This wallet is the family treasury. Sending {asset} to itself moves nothing, so the
+                transfer is blocked.
+              </p>
+              <p>
+                Fund from a different wallet — or skip funding entirely: borrowing spends the
+                treasury&apos;s own test BTC on Mezo and does not need a deposit.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 border-warning/40 bg-card text-warning"
+                onClick={() => {
+                  disconnectWallet();
+                  toast.info("Wallet disconnected — connect the wallet that will send the funds");
+                }}
+              >
+                <ArrowLeftRight className="h-3.5 w-3.5" /> Switch wallet
+              </Button>
+            </div>
           )}
           {!linked && wallet.address && (
             <p className="rounded-lg bg-warning-soft px-3 py-2 text-xs font-semibold text-warning">

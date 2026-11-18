@@ -38,7 +38,8 @@ import { buildWalletLinkMessage } from "@/lib/chain/wallet-link";
 import { linkWallet as linkWalletServer } from "@/lib/family.functions";
 import { toastError } from "@/lib/errors";
 import { accountLabel, familyLabel, usd } from "@/lib/format";
-import { getWalletState, signMessage } from "@/lib/wallet";
+import { getWalletState, restoreWalletSession, signMessage } from "@/lib/wallet";
+import { useMezo } from "@/lib/mezo";
 import { REQUIRED_UNFREEZE_SIGNATURES, canFreeze } from "@/lib/vault-logic";
 import { actions, memberById, useVault } from "@/lib/vault-store";
 import { cn } from "@/lib/utils";
@@ -62,6 +63,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const actingId = useVault((s) => s.actingId);
   const price = useVault((s) => s.btcPrice);
   const prev = useVault((s) => s.prevBtcPrice);
+  // The header always shows the live PriceFeed value when the Mezo RPC is
+  // reachable; the vault price is only the fallback while it loads or fails.
+  const liveBtc = useMezo((s) => s.btcUsd);
+  const mezoStatus = useMezo((s) => s.status);
+  const shownPrice = liveBtc ?? price;
+  const priceStale = liveBtc === null;
   const acting = useVault((s) => memberById(s, s.actingId));
   const familyName = useVault((s) => s.familyName);
   const syncing = useVault((s) => s.syncing);
@@ -90,6 +97,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       toastError(error, "Wallet linking failed");
     }
   }
+
+  useEffect(() => {
+    // Reconnect the wallet silently after a refresh (no popup): it only
+    // succeeds when this site is still authorized in the wallet.
+    void restoreWalletSession();
+  }, []);
 
   useEffect(() => {
     if (mode !== "demo") return;
@@ -129,10 +142,29 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
           <div className="ml-auto flex items-center gap-2.5">
             <NetworkPill />
-            <div className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold xl:flex">
+            <div
+              className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold xl:flex"
+              title={
+                priceStale
+                  ? "Mezo PriceFeed unreachable — showing the last verified price"
+                  : "Live BTC price from Mezo PriceFeed.fetchPrice()"
+              }
+            >
+              <span
+                className={cn(
+                  "h-2 w-2 rounded-full",
+                  mezoStatus === "online"
+                    ? "bg-primary"
+                    : mezoStatus === "connecting"
+                      ? "bg-muted-foreground animate-pulse"
+                      : "bg-warning",
+                )}
+              />
               BTC
-              <span className="tabular">{usd(price, { round: true })}</span>
-              {up ? (
+              <span className="tabular">{usd(shownPrice, { round: true })}</span>
+              {priceStale ? (
+                <span className="font-medium text-muted-foreground">stale</span>
+              ) : up ? (
                 <TrendingUp className="h-3.5 w-3.5 text-primary" />
               ) : (
                 <TrendingDown className="h-3.5 w-3.5 text-destructive" />

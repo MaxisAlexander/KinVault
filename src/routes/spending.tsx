@@ -155,7 +155,11 @@ function Spending() {
       <Panel
         className="mt-6"
         title={`Waiting for approval (${pending.length})`}
-        description={`You're acting as ${acting.name}. Switch member in the top-right to approve as someone else.`}
+        description={
+          isLive
+            ? `You're acting as ${acting.name}. Another admin or spouse has to sign in and approve.`
+            : `You're acting as ${acting.name}. Switch member in the top-right to approve as someone else.`
+        }
       >
         {pending.length === 0 ? (
           <p className="rounded-xl bg-surface p-6 text-center text-sm text-muted-foreground">

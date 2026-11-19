@@ -138,6 +138,7 @@ function ledgerOf(s: VaultState): Ledger {
     allowances: s.allowances,
     lastAccrualAt: s.lastAccrualAt,
     treasuryAddress: s.treasuryAddress,
+    autoApproveLimit: s.autoApproveLimit ?? 0,
   };
 }
 
@@ -287,9 +288,12 @@ export const actions = {
   }): Result {
     if (!(p.amount > 0)) return { ok: false, message: "Enter an amount above zero" };
     if (!p.merchant.trim()) return { ok: false, message: "Add where the money was spent" };
-    if (p.approverIds.length === 0)
-      return { ok: false, message: "Choose who should approve this expense" };
     return run({ type: "addExpense", ...p });
+  },
+
+  setAutoApproveLimit(limit: number): Result {
+    if (!(limit >= 0)) return { ok: false, message: "Enter a limit of 0 or more" };
+    return run({ type: "setAutoApproveLimit", limit });
   },
 
   approveExpense(expenseId: string): Result {

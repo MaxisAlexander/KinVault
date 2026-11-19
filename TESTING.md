@@ -57,8 +57,11 @@ The suite never signs a transaction and never depends on the network.
 - live lockbox contributions earmark treasury MUSD (the token stays in the
   treasury wallet), and releasing one returns the earmark to the spendable
   treasury balance so guardians can withdraw it to the child's wallet;
-- demo mode also pays only after the chosen approver signs — nothing is
-  auto-approved at any amount.
+- demo mode also pays only after the chosen approver signs, unless an admin set
+  an auto-approval limit and the amount is strictly under it;
+- only an admin can set that limit (`setAutoApproveLimit`); a spouse is refused,
+  a spend under the limit pays with no approver, and a spend at or above it stays
+  pending — as does any spend that breaks the member's daily or category allowance.
 
 ### Real-chain fixtures
 
@@ -162,7 +165,7 @@ server verifies sender, recipient, value and confirmations before crediting.
 1. **Log expense** for `$42`, tick the approver (for example the father), and
    submit.
 2. The expense is **pending**, not paid: the card shows `Waiting on <name>` and
-   `0 of 1`. No amount is auto-approved.
+   `0 of 1`. With the default limit of `$0`, nothing is auto-approved.
 3. Sign in as that approver (or switch member in demo) and click **Approve**.
    In live mode the expense is now approved but the treasury is **not** debited
    yet.
@@ -178,6 +181,25 @@ chosen approver has signed. The requester cannot approve their own expense, and
 a guardian who was not chosen cannot sign or decline it. Rows created before the
 approver picker existed still require two distinct approvals. Approval still
 does not debit the treasury — the verified payment does.
+
+### Auto-approval limit (admin only)
+
+1. Sign in as an admin and open **Spending** → **Set limit** on the
+   *Auto-approval limit* card. Enter `50` and save.
+2. Log an expense for `$42`. The dialog says the amount is under the limit, hides
+   the approver picker, and the button reads **Pay from vault** (demo) or
+   **Approve expense** (live). Submitting pays it immediately with no signature;
+   the row is labelled **Auto-approved**.
+3. Log an expense for `$50`. `$50` is *not* under the limit, so the picker
+   returns and the request stays **pending** until the chosen approver signs.
+4. Set the limit back to `0`. Every expense needs an approver again.
+
+Expected: only an admin sees a working **Set limit** button — a spouse sees
+"Only an admin can change this limit", and the server rejects the action for
+non-admins. A spend that breaks the member's daily or category allowance needs an
+approver even when it is under the limit. In live mode the instant path marks the
+expense approved but leaves the treasury balance alone; the MUSD still moves only
+through the verified on-chain payment.
 
 ### Withdraw to a member
 

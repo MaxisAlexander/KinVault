@@ -11,13 +11,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Check, Clock, ExternalLink, Plus, ShieldCheck, Users, X } from "lucide-react";
+import { Check, Clock, ExternalLink, Plus, Settings2, ShieldCheck, Users, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { AppShell, PageHeader, Panel } from "@/components/vault/app-shell";
 import { MemberAvatar } from "@/components/vault/member-avatar";
-import { ExpenseDialog } from "@/components/vault/money-dialogs";
+import { AutoApproveDialog, ExpenseDialog } from "@/components/vault/money-dialogs";
 import { PayExpenseButton } from "@/components/vault/onchain-dialogs";
 import { explorerTxUrl } from "@/lib/chain/config";
 import { shortDateTime, usd } from "@/lib/format";
@@ -69,6 +69,8 @@ function Spending() {
   const { expenses, members, actingId } = state;
   const isLive = state.mode === "live";
   const acting = memberById(state, actingId);
+  const autoLimit = state.autoApproveLimit ?? 0;
+  const canEditPolicy = acting.role === "admin";
   const [filter, setFilter] = useState<Category | "All">("All");
 
   const pending = expenses.filter((e) => e.status === "pending");
@@ -122,16 +124,21 @@ function Spending() {
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         <div className="flex items-start gap-4 rounded-2xl border border-border bg-card p-5 shadow-soft">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-mint text-mint-foreground">
             <ShieldCheck className="h-5 w-5" />
           </span>
           <div>
-            <p className="font-bold">Every expense needs a signature</p>
+            <p className="font-bold">
+              {autoLimit > 0
+                ? `Expenses under ${usd(autoLimit)} need no signature`
+                : "Every expense needs a signature"}
+            </p>
             <p className="text-sm text-muted-foreground">
-              No instant payouts — nothing leaves the {isLive ? "treasury" : "vault"} until the
-              family members you chose have approved it.
+              {autoLimit > 0
+                ? `Anything under ${usd(autoLimit)} is paid straight from the ${isLive ? "treasury" : "vault"}. At or above it, the members you chose must approve.`
+                : `No instant payouts — nothing leaves the ${isLive ? "treasury" : "vault"} until the family members you chose have approved it.`}
             </p>
           </div>
         </div>
@@ -146,6 +153,32 @@ function Spending() {
               {isLive &&
                 " Approvals are enforced by KinVault's server ledger, not by the chain — the treasury is a single wallet (see the README's known limitations)."}
             </p>
+          </div>
+        </div>
+        <div className="flex items-start gap-4 rounded-2xl border border-border bg-card p-5 shadow-soft">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface text-foreground">
+            <Settings2 className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-bold">Auto-approval limit</p>
+            <p className="text-sm text-muted-foreground">
+              {autoLimit > 0
+                ? `${usd(autoLimit)} — anything strictly under it is paid without a signature. At or above it, your chosen approvers sign.`
+                : "Off ($0). Every expense, however small, waits for an approver."}
+            </p>
+            {canEditPolicy ? (
+              <AutoApproveDialog
+                trigger={
+                  <Button variant="outline" size="sm" className="mt-3">
+                    <Settings2 /> {autoLimit > 0 ? "Change limit" : "Set limit"}
+                  </Button>
+                }
+              />
+            ) : (
+              <p className="mt-2 text-xs font-semibold text-muted-foreground">
+                Only an admin can change this limit.
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -394,7 +427,7 @@ function Spending() {
                       {e.note || "—"}
                     </td>
                     <td className="py-3 pr-3">
-                      <StatusPill status={e.status} />
+                      <StatusPill status={e.status} auto={e.auto} />
                       {e.onchain ? (
                         <a
                           href={explorerTxUrl(e.onchain.txHash)}
@@ -422,7 +455,7 @@ function Spending() {
   );
 }
 
-function StatusPill({ status }: { status: string }) {
+function StatusPill({ status, auto }: { status: string; auto?: boolean | undefined }) {
   if (status === "pending")
     return (
       <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-warning">
@@ -437,7 +470,7 @@ function StatusPill({ status }: { status: string }) {
     );
   return (
     <span className="rounded-full bg-mint px-2 py-0.5 text-[11px] font-semibold text-mint-foreground">
-      Approved
+      {auto ? "Auto-approved" : "Approved"}
     </span>
   );
 }

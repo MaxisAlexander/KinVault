@@ -157,7 +157,7 @@ All rules are pure functions in `src/lib/vault-logic.ts`:
 | Rule                      | Value                                                                     |
 | ------------------------- | ------------------------------------------------------------------------- |
 | Expense approval          | requester names the approvers; every chosen admin/spouse must sign         |
-| Nothing auto-approves     | no amount is paid without at least one named approver signing             |
+| Auto-approval limit       | admin-set, default $0 (off); only amounts strictly under it and inside the member's allowance skip signatures |
 | Legacy expense            | rows with no named approvers need 2 distinct approvals                    |
 | Roles                     | admin/spouse approve; teen/kid cannot                                     |
 | Default allowances        | teen $50/day; kid $15/day and School/Groceries only           |
@@ -279,8 +279,9 @@ push (`.github/workflows/ci.yml`).
 - repayment verification from MUSD burn logs, including `closeTrove()`
 - ledger bridge: MUSD/BTC deposits, expense settlement debit, withdrawals,
   trove open/repay and hash-chain integrity
-- live mode refusing ledger-only value movements and demo mode paying only after
-  the chosen approver signs
+- live mode refusing ledger-only value movements, demo mode paying only after
+  the chosen approver signs, and the admin-only auto-approval limit (strictly
+  under it pays with no signature; at or above it stays pending)
 
 `src/lib/chain/verify.fixtures.test.ts` replays real Mezo Testnet receipts
 recorded in `src/test/fixtures/mezo-receipts.json`, and

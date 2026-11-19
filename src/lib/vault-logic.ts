@@ -222,12 +222,16 @@ export function checkCategoryAllowed(category: string, allowed: string[] | null)
 }
 
 export type ExpenseRoute =
-  { route: "approval"; flags: string[] } | { route: "blocked"; flags: string[]; reason: string };
+  | { route: "instant"; flags: string[] }
+  | { route: "approval"; flags: string[] }
+  | { route: "blocked"; flags: string[]; reason: string };
 
 /**
- * Decide what happens to a new expense: a frozen vault blocks it, otherwise it
- * always waits for the approvers the requester chose. There is no instant path —
- * every expense needs at least one named family member to sign it.
+ * Decide what happens to a new expense: a frozen vault blocks it. An admin may
+ * set an auto-approval limit — strictly under that amount (and within the
+ * member's allowance) the expense is paid without a signature. Everything else
+ * waits for the approvers the requester chose. A limit of 0 (the default)
+ * disables auto-approval entirely.
  */
 export function routeExpense(p: {
   amount: number;
@@ -235,6 +239,7 @@ export function routeExpense(p: {
   frozen: boolean;
   spentToday: number;
   allowance: Allowance;
+  autoApproveLimit?: number;
 }): ExpenseRoute {
   if (p.frozen)
     return { route: "blocked", flags: [], reason: "The vault is frozen — spending is paused" };
@@ -247,6 +252,8 @@ export function routeExpense(p: {
   if (!v.ok) flags.push(v.reason!);
   const c = checkCategoryAllowed(p.category, p.allowance.categories);
   if (!c.ok) flags.push(c.reason!);
+  const limit = p.autoApproveLimit ?? 0;
+  if (limit > 0 && p.amount < limit && flags.length === 0) return { route: "instant", flags };
   return { route: "approval", flags };
 }
 

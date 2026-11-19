@@ -76,7 +76,7 @@ export type Expense = {
   note: string;
   date: string;
   status: ExpenseStatus;
-  /** Legacy flag from the removed instant-approval path. */
+  /** True when the admin's auto-approval limit paid this expense with no signature. */
   auto?: boolean;
   approvals: string[];
   /** Guardians the requester chose to approve this expense. */
@@ -159,6 +159,11 @@ export type Ledger = {
   lastAccrualAt: string;
   /** Mezo Testnet wallet that holds the family's on-chain treasury. */
   treasuryAddress?: string | null;
+  /**
+   * Admin-set MUSD limit. Expenses strictly under it are paid without a
+   * signature; 0/absent means every expense needs an approver.
+   */
+  autoApproveLimit?: number;
 };
 
 export const ACTIVITY_LIMIT = 200;
@@ -189,8 +194,8 @@ export const vaultActionSchema = z.discriminatedUnion("type", [
     merchant: text(80),
     amount,
     note: text(500),
-    /** Family members the requester is asking to approve. */
-    approverIds: z.array(z.string().min(1).max(64)).min(1).max(6),
+    /** Family members the requester is asking to approve. Empty for auto-approved spends. */
+    approverIds: z.array(z.string().min(1).max(64)).max(6),
   }),
   z.object({ type: z.literal("approveExpense"), expenseId: z.string().min(1).max(64) }),
   z.object({ type: z.literal("rejectExpense"), expenseId: z.string().min(1).max(64) }),
@@ -220,6 +225,11 @@ export const vaultActionSchema = z.discriminatedUnion("type", [
     memberId: z.string().min(1).max(64),
     dailyLimit: z.number().finite().min(0).max(1e9).nullable(),
     categories: z.array(z.enum(CATEGORIES)).max(CATEGORIES.length).nullable(),
+  }),
+  z.object({
+    type: z.literal("setAutoApproveLimit"),
+    /** MUSD. 0 disables auto-approval; strictly-under amounts need no signature. */
+    limit: z.number().finite().min(0).max(1e9),
   }),
 ]);
 
@@ -253,6 +263,11 @@ function memberOf(l: Ledger, id: string): Member | undefined {
 
 export function allowanceOf(l: Ledger, memberId: string): Allowance {
   return l.allowances[memberId] ?? NO_ALLOWANCE;
+}
+
+/** The admin-set auto-approval limit, defaulting to 0 (disabled). */
+export function autoApproveLimitOf(l: Ledger): number {
+  return Math.max(0, l.autoApproveLimit ?? 0);
 }
 
 function withLog(
@@ -395,27 +410,33 @@ export function applyAction(l: Ledger, a: VaultAction, ctx: EngineCtx): EngineRe
       const merchant = a.merchant.trim();
       if (!merchant) return fail("Add where the money was spent");
       const value = r2(a.amount);
-      // Every expense is signed by named family members — nothing is paid
-      // instantly. Validate the pick before the request reaches the ledger.
-      const approvers = [...new Set(a.approverIds)].filter((id) => id !== actor.id);
-      if (approvers.length === 0)
-        return fail("Choose at least one family member to approve this expense");
-      const names: string[] = [];
-      for (const id of approvers) {
-        const m = memberOf(l, id);
-        if (!m) return fail("Pick approvers from this family");
-        if (!canApprove(m.role))
-          return fail(`${m.name} can't approve expenses — pick an admin or spouse`);
-        names.push(m.name);
-      }
       const route = routeExpense({
         amount: value,
         category: a.category,
         frozen,
         spentToday: spentToday(l.expenses, actor.id, ctx.now),
         allowance: allowanceOf(l, actor.id),
+        autoApproveLimit: autoApproveLimitOf(l),
       });
       if (route.route === "blocked") return fail(route.reason);
+      const instant = route.route === "instant";
+      // Only spends that need a signature must name approvers. Auto-approved
+      // spends skip the pick, and the admin's limit is the only authorisation.
+      const approvers = [...new Set(a.approverIds)].filter((id) => id !== actor.id);
+      const names: string[] = [];
+      if (!instant) {
+        if (approvers.length === 0)
+          return fail("Choose at least one family member to approve this expense");
+        for (const id of approvers) {
+          const m = memberOf(l, id);
+          if (!m) return fail("Pick approvers from this family");
+          if (!canApprove(m.role))
+            return fail(`${m.name} can't approve expenses — pick an admin or spouse`);
+          names.push(m.name);
+        }
+      }
+      const paidNow = instant && !ctx.onchain;
+      if (paidNow && value > l.vault.musd) return fail("Not enough MUSD in the vault");
       const expense: Expense = {
         id: ctx.newId("e"),
         memberId: actor.id,
@@ -424,22 +445,32 @@ export function applyAction(l: Ledger, a: VaultAction, ctx: EngineCtx): EngineRe
         amount: value,
         note: a.note.trim(),
         date: ctx.now.toISOString(),
-        status: "pending",
+        status: instant ? "approved" : "pending",
+        auto: instant,
         approvals: [],
-        approvers,
+        ...(instant ? {} : { approvers }),
         flags: route.flags,
       };
       return {
         ok: true,
-        message: route.flags.length
-          ? `Sent to ${names.join(" and ")} · ${route.flags[0]}`
-          : `Sent to ${names.join(" and ")} for approval`,
+        message: instant
+          ? ctx.onchain
+            ? "Approved instantly — settle it from the treasury with MUSD"
+            : "Paid instantly — under the admin's auto-approval limit"
+          : route.flags.length
+            ? `Sent to ${names.join(" and ")} · ${route.flags[0]}`
+            : `Sent to ${names.join(" and ")} for approval`,
         ledger: {
           ...l,
           expenses: [expense, ...l.expenses],
+          vault: paidNow ? { ...l.vault, musd: l.vault.musd - value } : l.vault,
           activity: withLog(l, ctx, {
             kind: "expense",
-            text: `requested approval from ${names.join(" and ")} for ${merchant}`,
+            text: paidNow
+              ? `paid ${merchant} · auto-approved`
+              : instant
+                ? `approved ${merchant} · awaiting on-chain payment`
+                : `requested approval from ${names.join(" and ")} for ${merchant}`,
             amount: value,
             asset: "MUSD",
             direction: "out",
@@ -777,6 +808,28 @@ export function applyAction(l: Ledger, a: VaultAction, ctx: EngineCtx): EngineRe
         },
       };
     }
+    case "setAutoApproveLimit": {
+      if (actor.role !== "admin") return fail("Only an admin can change the auto-approval limit");
+      const limit = r2(a.limit);
+      return {
+        ok: true,
+        message:
+          limit > 0
+            ? `Expenses under $${limit} will auto-approve`
+            : "Every expense now needs an approver",
+        ledger: {
+          ...l,
+          autoApproveLimit: limit,
+          activity: withLog(l, ctx, {
+            kind: "family",
+            text:
+              limit > 0
+                ? `set the auto-approval limit to $${limit}`
+                : "turned off auto-approval — every expense needs a signature",
+          }),
+        },
+      };
+    }
   }
 }
 
@@ -806,6 +859,7 @@ export function emptyLedger(now: Date): Ledger {
     allowances: {},
     lastAccrualAt: now.toISOString(),
     treasuryAddress: null,
+    autoApproveLimit: 0,
   };
 }
 

@@ -57,9 +57,9 @@ mezo live check: ok
 
 - The product solves a concrete household problem: pay for family life and
   borrow for big moments without selling Bitcoin.
-- Requester-chosen spending approvals (no auto-approve at any amount),
-  per-member allowances, freeze/unfreeze and guardian lockboxes are implemented
-  as pure, tested rules.
+- Requester-chosen spending approvals plus an admin-set auto-approval limit
+  (default `$0`, off), per-member allowances, freeze/unfreeze and guardian
+  lockboxes are implemented as pure, tested rules.
 - The treasury is a real Mezo Testnet wallet; KinVault never holds a key.
 - A written business model — who pays, what they buy, three revenue paths, and
   the honest dependency on Mezo getting a fiat on-ramp — is in
@@ -136,6 +136,8 @@ fixed rather than argued with:
 | 6.5% APY could be misread as protocol yield | Demo stat relabelled "Simulated yield · demo only — Mezo does not pay this yield"; live mode unchanged (already yield-free) |
 | Approvals could be read as chain-enforced | Spending page now states in live mode that approvals are server-ledger-enforced, not chain-enforced |
 | Under-$100 expenses auto-approved without a family signature | Instant approval removed: the requester names the approvers (e.g. Dad), every chosen approver must sign, and a sub-$100 expense stays pending until they do; legacy rows still need two distinct approvals |
+| Families wanted a say in when a signature is overkill | Admin-only auto-approval limit (default `$0` = off). Amounts strictly under it, and inside the member's allowance, pay with no signature; at or above it the chosen approvers sign. Enforced in `routeExpense`/`addExpense`, not just the UI |
+| Generated labels repeated words ("The Perera Family Family Vault", "created the The … family vault") | The dashboard eyebrow uses `familyLabel()`, generated vault-created text drops the duplicated article and suffix, and the five existing testnet ledgers were rewritten in place with their hashes re-sealed so the receipt chain still verifies |
 | README carried screenshots and a demo-video section | Removed; README now leads with on-chain claims, evidence and current status |
 | Wallet disconnected on every page refresh | The address is remembered and restored silently through `eth_accounts` (no popup, no signature); 4 tests in `src/lib/wallet.test.ts` |
 | Header BTC price could show the demo constant in live mode | Header reads Mezo `PriceFeed.fetchPrice()` with a live/stale dot and tooltip; the vault price is only a fallback while the RPC loads |
@@ -152,10 +154,10 @@ narrated). It covers:
    paths (email, Google, wallet signature).
 2. **0:28–0:58** — Dashboard, deposits and withdrawals, member sub-accounts,
    roles and the acting-as switcher, and onboarding/invite codes.
-3. **0:58–1:25** — Requester-chosen approvals (nothing auto-approves, and the
-   requester picks the father or another guardian), expense logging, filters and
-   charts; the loan calculator, LTV and stress sliders, borrow, repay and
-   repay-in-full.
+3. **0:58–1:25** — Requester-chosen approvals (the requester picks the father or
+   another guardian), the admin-only auto-approval limit and the sub-limit spends
+   that skip signatures, expense logging, filters and charts; the loan
+   calculator, LTV and stress sliders, borrow, repay and repay-in-full.
 4. **1:25–1:56** — Lockboxes, letters, guardian signatures, contributions, a new
    lockbox, and hash-chained receipts with Mezo block heights.
 5. **1:56–2:19** — The server-side verification model and the close.
@@ -223,7 +225,7 @@ The production deployment is backed by its own Supabase project
   never exposed to the browser bundle.
 - End-to-end check on https://kinvault-six.vercel.app: email sign-in, family
   creation on `/onboarding`, then `/dashboard` hydrating the saved family
-  ("Test Family family · saved") with live activity, real dates and
+  ("The Perera Family · saved") with live activity, real dates and
   "Verified on Mezo Testnet · no simulated yield" instead of the demo banner.
 - Demo mode is unchanged and still reachable with no account.
 

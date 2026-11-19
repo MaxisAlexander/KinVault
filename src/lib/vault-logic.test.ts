@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  NO_ALLOWANCE,
   borrowFromLtv,
   canRelease,
   checkApproval,
@@ -8,6 +9,7 @@ import {
   isFullyApproved,
   liquidationPrice,
   riskLevel,
+  routeExpense,
 } from "./vault-logic";
 
 describe("spending rules", () => {
@@ -73,6 +75,56 @@ describe("spending rules", () => {
         existingApprovals: [],
       }).ok,
     ).toBe(false);
+  });
+});
+
+describe("auto-approval limit", () => {
+  const base = {
+    category: "Groceries",
+    frozen: false,
+    spentToday: 0,
+    allowance: NO_ALLOWANCE,
+  };
+
+  it("needs an approver when no limit is set", () => {
+    expect(routeExpense({ ...base, amount: 12 }).route).toBe("approval");
+    expect(routeExpense({ ...base, amount: 12, autoApproveLimit: 0 }).route).toBe("approval");
+  });
+
+  it("pays without a signature strictly under the limit", () => {
+    expect(routeExpense({ ...base, amount: 49.99, autoApproveLimit: 50 }).route).toBe("instant");
+  });
+
+  it("needs an approver at or above the limit", () => {
+    expect(routeExpense({ ...base, amount: 50, autoApproveLimit: 50 }).route).toBe("approval");
+    expect(routeExpense({ ...base, amount: 51, autoApproveLimit: 50 }).route).toBe("approval");
+  });
+
+  it("still needs an approver when an allowance rule is broken", () => {
+    const daily = routeExpense({
+      ...base,
+      amount: 40,
+      spentToday: 40,
+      allowance: { dailyLimit: 50, categories: null },
+      autoApproveLimit: 100,
+    });
+    expect(daily.route).toBe("approval");
+    expect(daily.flags.length).toBe(1);
+
+    const category = routeExpense({
+      ...base,
+      amount: 10,
+      category: "Dining",
+      allowance: { dailyLimit: null, categories: ["Groceries"] },
+      autoApproveLimit: 100,
+    });
+    expect(category.route).toBe("approval");
+    expect(category.flags.length).toBe(1);
+  });
+
+  it("a frozen vault blocks the expense even under the limit", () => {
+    const r = routeExpense({ ...base, amount: 5, frozen: true, autoApproveLimit: 100 });
+    expect(r.route).toBe("blocked");
   });
 });
 

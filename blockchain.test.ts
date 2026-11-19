@@ -936,6 +936,142 @@ describe("live mode value rules", () => {
   });
 });
 
+describe("admin auto-approval limit", () => {
+  it("only an admin can change the limit", () => {
+    const denied = applyAction(
+      baseLedger(),
+      { type: "setAutoApproveLimit", limit: 50 },
+      { ...ctx(true), actorId: "m2" },
+    );
+    expect(denied.ok).toBe(false);
+    if (!denied.ok) expect(denied.message).toMatch(/admin/i);
+
+    const allowed = applyAction(
+      baseLedger(),
+      { type: "setAutoApproveLimit", limit: 50 },
+      ctx(true),
+    );
+    expect(allowed.ok).toBe(true);
+    if (!allowed.ok) return;
+    expect(allowed.ledger.autoApproveLimit).toBe(50);
+  });
+
+  it("pays strictly under the limit with no approver in demo mode", () => {
+    const start: Ledger = {
+      ...baseLedger(),
+      vault: { ...baseLedger().vault, musd: 500 },
+      autoApproveLimit: 50,
+    };
+    const result = applyAction(
+      start,
+      {
+        type: "addExpense",
+        category: "Groceries",
+        merchant: "Corner Store",
+        amount: 42,
+        note: "",
+        approverIds: [],
+      },
+      ctx(false),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.ledger.expenses[0]?.status).toBe("approved");
+    expect(result.ledger.expenses[0]?.auto).toBe(true);
+    expect(result.ledger.vault.musd).toBe(458);
+  });
+
+  it("leaves an expense at the limit pending until the chosen approver signs", () => {
+    const start: Ledger = {
+      ...baseLedger(),
+      vault: { ...baseLedger().vault, musd: 500 },
+      autoApproveLimit: 50,
+    };
+    const atLimit = applyAction(
+      start,
+      {
+        type: "addExpense",
+        category: "Groceries",
+        merchant: "Corner Store",
+        amount: 50,
+        note: "",
+        approverIds: [],
+      },
+      ctx(false),
+    );
+    expect(atLimit.ok).toBe(false);
+    if (!atLimit.ok) expect(atLimit.message).toMatch(/choose/i);
+
+    const above = applyAction(
+      start,
+      {
+        type: "addExpense",
+        category: "Groceries",
+        merchant: "Corner Store",
+        amount: 51,
+        note: "",
+        approverIds: ["m2"],
+      },
+      ctx(false),
+    );
+    expect(above.ok).toBe(true);
+    if (!above.ok) return;
+    expect(above.ledger.expenses[0]?.status).toBe("pending");
+    expect(above.ledger.vault.musd).toBe(500);
+  });
+
+  it("keeps a broken allowance on the approval path even under the limit", () => {
+    const start: Ledger = {
+      ...baseLedger(),
+      vault: { ...baseLedger().vault, musd: 500 },
+      autoApproveLimit: 100,
+      allowances: { m1: { dailyLimit: 10, categories: null } },
+    };
+    const result = applyAction(
+      start,
+      {
+        type: "addExpense",
+        category: "Groceries",
+        merchant: "Corner Store",
+        amount: 42,
+        note: "",
+        approverIds: ["m2"],
+      },
+      ctx(false),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.ledger.expenses[0]?.status).toBe("pending");
+    expect(result.ledger.expenses[0]?.flags?.length).toBe(1);
+    expect(result.ledger.vault.musd).toBe(500);
+  });
+
+  it("approves instantly in live mode but waits for the on-chain payment", () => {
+    const start: Ledger = {
+      ...baseLedger(),
+      vault: { ...baseLedger().vault, musd: 500 },
+      autoApproveLimit: 50,
+    };
+    const result = applyAction(
+      start,
+      {
+        type: "addExpense",
+        category: "Groceries",
+        merchant: "Corner Store",
+        amount: 42,
+        note: "",
+        approverIds: [],
+      },
+      ctx(true),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.ledger.expenses[0]?.status).toBe("approved");
+    expect(result.ledger.vault.musd).toBe(500);
+    expect(result.message).toMatch(/settle/i);
+  });
+});
+
 function lockbox(): Ledger["lockboxes"][number] {
   return {
     id: "lb1",

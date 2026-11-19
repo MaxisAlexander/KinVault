@@ -163,7 +163,7 @@ export const createFamily = createServerFn({ method: "POST" })
       ledger = engine.logFamilyEvent(
         ledger,
         srv.serverCtx(me.id, { block }),
-        `created the ${fam.name} family vault`,
+        `created the ${fam.name.replace(/^the\s+/i, "")} vault`,
       );
 
       const { error: ledErr } = await supabaseAdmin

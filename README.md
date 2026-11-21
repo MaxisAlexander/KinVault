@@ -190,6 +190,7 @@ src/
     family.server.ts     membership, seat sync, optimistic concurrency
     vault-engine.ts      shared action engine and ledger types
     vault-store.ts       demo/live client store
+    input-validation.ts  shared form rules: sanitising, amounts, text, addresses, dates
   routes/                landing, auth, dashboard, spending, loans, trust, family
   components/vault/      app shell, wallet, fund/pay dialogs, trove panel, ledger
 blockchain.test.ts       root blockchain test suite
@@ -256,7 +257,7 @@ unverified writes.
 ## Testing
 
 ```sh
-bun run test        # 98 unit and integration tests across 11 files
+bun run test        # 120 unit and integration tests across 12 files
 bun run test:live   # read-only smoke test against Mezo Testnet
 bun run proof 0x…   # re-verify one real transaction with the server verifier
 bun run fixtures    # re-record the Mezo Testnet fixtures used by the test suite
@@ -285,10 +286,12 @@ push (`.github/workflows/ci.yml`).
 
 `src/lib/chain/verify.fixtures.test.ts` replays real Mezo Testnet receipts
 recorded in `src/test/fixtures/mezo-receipts.json`, and
-`src/lib/chain/guards.test.ts` covers the self-transfer guard. `TESTING.md`
-documents every automated test and the manual testnet checks (connect, link,
-fund, approve, pay, withdraw, open trove, partial repay, close) with expected
-explorer results.
+`src/lib/chain/guards.test.ts` covers the self-transfer guard.
+`src/lib/input-validation.test.ts` covers the shared form rules — numeric
+sanitising, amounts against balances, text lengths, emails, passwords, invite
+codes, wallet addresses, ages and dates. `TESTING.md` documents every automated
+test and the manual testnet checks (connect, link, fund, approve, pay, withdraw,
+open trove, partial repay, close) with expected explorer results.
 
 ---
 

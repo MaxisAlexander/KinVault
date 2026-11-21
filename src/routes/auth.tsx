@@ -2,16 +2,18 @@
 import { useEffect, useState } from "react";
 import { Loader2, MailCheck } from "lucide-react";
 import { toast } from "sonner";
-import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FieldError } from "@/components/ui/field-error";
 import { Label } from "@/components/ui/label";
 import { SocialButtons } from "@/components/vault/auth-buttons";
 import { Logo } from "@/components/vault/logo";
 import { supabase } from "@/integrations/supabase/client";
 import { toastError } from "@/lib/errors";
+import { emailError, passwordError, textError } from "@/lib/input-validation";
 import { safeRedirect } from "@/lib/safe-redirect";
+import { cn } from "@/lib/utils";
 import familyImage from "@/assets/kinvault-family-login.jpg";
 
 const FAMILY_IMAGE_ALT =
@@ -46,9 +48,6 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-const emailSchema = z.string().trim().email("Enter a valid email").max(255);
-const passwordSchema = z.string().min(8, "Use at least 8 characters").max(72);
-
 function AuthPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
@@ -61,6 +60,15 @@ function AuthPage() {
   const [resending, setResending] = useState(false);
 
   const target = safeRedirect(search.redirect);
+  const emailIssue = email ? emailError(email) : null;
+  const passwordIssue = mode === "signup" && password ? passwordError(password) : null;
+  const nameIssue = name.trim() ? textError(name, { label: "your name", max: 40 }) : null;
+  const canSubmit =
+    !!email.trim() &&
+    (mode === "forgot" || !!password) &&
+    !emailIssue &&
+    !passwordIssue &&
+    !nameIssue;
 
   function finish() {
     const stored = sessionStorage.getItem(AFTER_AUTH_KEY);
@@ -99,26 +107,31 @@ function AuthPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const em = emailSchema.safeParse(email);
-    if (!em.success) {
-      toast.error(em.error.issues[0]!.message);
+    if (emailIssue) {
+      toast.error(emailIssue);
       return;
     }
-    if (mode !== "forgot") {
-      const pw = passwordSchema.safeParse(password);
-      if (!pw.success) {
-        toast.error(pw.error.issues[0]!.message);
-        return;
-      }
+    if (passwordIssue) {
+      toast.error(passwordIssue);
+      return;
     }
+    if (mode !== "forgot" && !password) {
+      toast.error("Enter your password");
+      return;
+    }
+    if (nameIssue) {
+      toast.error(nameIssue);
+      return;
+    }
+    const address = email.trim();
     setBusy(true);
     try {
       if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({ email: em.data, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: address, password });
         if (error) throw error;
       } else if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
-          email: em.data,
+          email: address,
           password,
           options: {
             emailRedirectTo: `${window.location.origin}${target}`,
@@ -143,7 +156,7 @@ function AuthPage() {
         }
         if (!data.session) setSent("confirm");
       } else {
-        const { error } = await supabase.auth.resetPasswordForEmail(em.data, {
+        const { error } = await supabase.auth.resetPasswordForEmail(address, {
           redirectTo: `${window.location.origin}/reset-password`,
         });
         if (error) throw error;
@@ -245,6 +258,7 @@ function AuthPage() {
 
               <form
                 onSubmit={submit}
+                noValidate
                 className={mode === "forgot" ? "mt-8 space-y-4" : "space-y-4"}
               >
                 {mode === "signup" && (
@@ -254,10 +268,16 @@ function AuthPage() {
                       id="name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="h-11 rounded-xl"
+                      className={cn(
+                        "h-11 rounded-xl",
+                        nameIssue && "border-destructive focus-visible:ring-destructive",
+                      )}
                       placeholder="e.g. Elena Rivera"
                       maxLength={40}
+                      aria-invalid={!!nameIssue}
+                      aria-describedby={nameIssue ? "name-error" : undefined}
                     />
+                    <FieldError id="name-error">{nameIssue}</FieldError>
                   </div>
                 )}
                 <div className="space-y-2">
@@ -268,8 +288,14 @@ function AuthPage() {
                     autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="h-11 rounded-xl"
+                    className={cn(
+                      "h-11 rounded-xl",
+                      emailIssue && "border-destructive focus-visible:ring-destructive",
+                    )}
+                    aria-invalid={!!emailIssue}
+                    aria-describedby={emailIssue ? "email-error" : undefined}
                   />
+                  <FieldError id="email-error">{emailIssue}</FieldError>
                 </div>
                 {mode !== "forgot" && (
                   <div className="space-y-2">
@@ -291,11 +317,20 @@ function AuthPage() {
                       autoComplete={mode === "signup" ? "new-password" : "current-password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="h-11 rounded-xl"
+                      className={cn(
+                        "h-11 rounded-xl",
+                        passwordIssue && "border-destructive focus-visible:ring-destructive",
+                      )}
+                      aria-invalid={!!passwordIssue}
+                      aria-describedby={passwordIssue ? "password-error" : undefined}
                     />
+                    <FieldError id="password-error">{passwordIssue}</FieldError>
+                    {mode === "signup" && !passwordIssue && (
+                      <p className="text-xs text-muted-foreground">At least 8 characters.</p>
+                    )}
                   </div>
                 )}
-                <Button type="submit" size="lg" className="w-full" disabled={busy}>
+                <Button type="submit" size="lg" className="w-full" disabled={busy || !canSubmit}>
                   {busy && <Loader2 className="animate-spin" />}
                   {mode === "signup"
                     ? "Create account"

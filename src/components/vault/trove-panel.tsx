@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FieldError } from "@/components/ui/field-error";
 import { Label } from "@/components/ui/label";
 import { Panel } from "@/components/vault/app-shell";
 import { FundVaultDialog } from "@/components/vault/onchain-dialogs";
@@ -23,6 +24,14 @@ import { toastError } from "@/lib/errors";
 import { summarizeTrove, type TroveSummary } from "@/lib/chain/protocol";
 import { getInjectedProvider, openTrove, repayTrove } from "@/lib/chain/transactions";
 import { confirmTroveOpen, confirmTroveRepay } from "@/lib/family.functions";
+import {
+  MAX_BTC,
+  MAX_MUSD,
+  amountError,
+  parseDecimal,
+  sanitizeDecimal,
+} from "@/lib/input-validation";
+import { cn } from "@/lib/utils";
 import { actions, useVault } from "@/lib/vault-store";
 import { connectWallet, useWallet } from "@/lib/wallet";
 
@@ -126,9 +135,44 @@ export function TrovePanel() {
     : null;
   const connected = wallet.address?.toLowerCase() === treasury.toLowerCase();
   const mezoOk = snapshot ? meetsMezoParticipation(snapshot.mezoWei) : false;
+  const minNetDebt = snapshot ? Number(snapshot.params.minNetDebt) / 1e18 : 0;
+  const debt = summary?.debtMusd ?? 0;
+  const repayValue = parseDecimal(repayAmount) ?? 0;
+
+  const repayIssue =
+    amountError(repayAmount, {
+      label: "an amount",
+      decimals: 2,
+      max: debt,
+      maxLabel: `The trove owes ${formatNum(debt)} MUSD`,
+    }) ??
+    (repayValue > 0 && repayValue < debt && debt - repayValue < minNetDebt
+      ? `A partial repayment must leave at least ${formatNum(minNetDebt, 0)} MUSD of debt — use Close trove instead`
+      : null);
+
+  const collateralIssue = amountError(collateral, {
+    label: "the BTC collateral",
+    decimals: 8,
+    max: MAX_BTC,
+  });
+
+  const borrowValue = parseDecimal(borrow) ?? 0;
+  const borrowIssue =
+    amountError(borrow, {
+      label: "the MUSD amount",
+      decimals: 2,
+      max: MAX_MUSD,
+    }) ??
+    (borrowValue > 0 && minNetDebt > 0 && borrowValue < minNetDebt
+      ? `Mezo needs at least ${formatNum(minNetDebt, 0)} MUSD of net debt`
+      : null);
 
   async function open() {
     if (!treasury) return;
+    if (collateralIssue || borrowIssue) {
+      toast.error(collateralIssue ?? borrowIssue ?? "Check the trove inputs");
+      return;
+    }
     if (!wallet.address) {
       await connectWallet();
       return;
@@ -172,6 +216,10 @@ export function TrovePanel() {
       return;
     }
     const amount = full ? String(summary?.debtMusd ?? "") : repayAmount;
+    if (!full && repayIssue) {
+      toast.error(repayIssue);
+      return;
+    }
     if (!(Number(amount) > 0)) {
       toast.error("Enter an amount above zero");
       return;
@@ -265,11 +313,23 @@ export function TrovePanel() {
                   <Input
                     id="repay-musd"
                     inputMode="decimal"
+                    placeholder="0.00"
+                    maxLength={14}
+                    aria-invalid={!!repayIssue}
+                    aria-describedby={repayIssue ? "repay-musd-error" : undefined}
                     value={repayAmount}
-                    onChange={(e) => setRepayAmount(e.target.value)}
+                    onChange={(e) => setRepayAmount(sanitizeDecimal(e.target.value, 2))}
+                    className={cn(
+                      "tabular",
+                      repayIssue && "border-destructive focus-visible:ring-destructive",
+                    )}
                   />
+                  <FieldError id="repay-musd-error">{repayIssue}</FieldError>
                 </div>
-                <Button onClick={() => void repay()} disabled={busy || !repayAmount || !connected}>
+                <Button
+                  onClick={() => void repay()}
+                  disabled={busy || !repayAmount || !!repayIssue || !connected}
+                >
                   {busy ? <Loader2 className="animate-spin" /> : <Landmark />} Repay trove
                 </Button>
                 <Button
@@ -304,21 +364,42 @@ export function TrovePanel() {
                   <Input
                     id="trove-coll"
                     inputMode="decimal"
+                    placeholder="0.00000000"
+                    maxLength={20}
+                    aria-invalid={!!collateralIssue}
+                    aria-describedby={collateralIssue ? "trove-coll-error" : undefined}
                     value={collateral}
-                    onChange={(e) => setCollateral(e.target.value)}
+                    onChange={(e) => setCollateral(sanitizeDecimal(e.target.value, 8))}
+                    className={cn(
+                      "tabular",
+                      collateralIssue && "border-destructive focus-visible:ring-destructive",
+                    )}
                   />
+                  <FieldError id="trove-coll-error">{collateralIssue}</FieldError>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="trove-borrow">MUSD to borrow</Label>
                   <Input
                     id="trove-borrow"
                     inputMode="decimal"
+                    placeholder="0.00"
+                    maxLength={14}
+                    aria-invalid={!!borrowIssue}
+                    aria-describedby={borrowIssue ? "trove-borrow-error" : undefined}
                     value={borrow}
-                    onChange={(e) => setBorrow(e.target.value)}
+                    onChange={(e) => setBorrow(sanitizeDecimal(e.target.value, 2))}
+                    className={cn(
+                      "tabular",
+                      borrowIssue && "border-destructive focus-visible:ring-destructive",
+                    )}
                   />
+                  <FieldError id="trove-borrow-error">{borrowIssue}</FieldError>
                 </div>
               </div>
-              <Button onClick={() => void open()} disabled={busy || !connected || !mezoOk}>
+              <Button
+                onClick={() => void open()}
+                disabled={busy || !connected || !mezoOk || !!collateralIssue || !!borrowIssue}
+              >
                 {busy ? <Loader2 className="animate-spin" /> : <Landmark />} Open trove on Mezo
                 Testnet
               </Button>

@@ -7,11 +7,14 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FieldError } from "@/components/ui/field-error";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/vault/logo";
 import { setDemoPreference, vaultQueryKey } from "@/components/vault/vault-session";
 import { toastError } from "@/lib/errors";
 import { createFamily, joinFamily, previewInvite } from "@/lib/family.functions";
+import { ageError, inviteCodeError, normalizeInviteCode, textError } from "@/lib/input-validation";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
   head: () => ({
@@ -95,17 +98,52 @@ function CreateForm() {
   const [members, setMembers] = useState<Draft[]>([{ name: "", role: "spouse", age: "" }]);
   const [busy, setBusy] = useState(false);
 
+  const familyIssue = familyName.trim()
+    ? textError(familyName, { label: "a family name", max: 60 })
+    : null;
+  const meNameIssue = me.name.trim() ? textError(me.name, { label: "your name", max: 40 }) : null;
+  const meAgeIssue = me.age ? ageError(me.age, { min: 18, max: 120 }) : null;
+  const rowIssues = members.map((m) => ({
+    name: m.name.trim() ? textError(m.name, { label: "a name", max: 40 }) : null,
+    age: m.age ? ageError(m.age, { min: 0, max: 120 }) : null,
+    // A row is either skipped entirely or needs both a name and an age.
+    incomplete: !!m.name.trim() !== !!m.age,
+  }));
+  const rowsValid = rowIssues.every((r) => !r.name && !r.age && !r.incomplete);
+  const canSubmit =
+    !!familyName.trim() &&
+    !!me.name.trim() &&
+    !!me.age &&
+    !familyIssue &&
+    !meNameIssue &&
+    !meAgeIssue &&
+    rowsValid;
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!canSubmit) {
+      const badRow = rowIssues.find((r) => r.name || r.age || r.incomplete);
+      toast.error(
+        familyIssue ??
+          meNameIssue ??
+          meAgeIssue ??
+          badRow?.name ??
+          badRow?.age ??
+          (badRow
+            ? "Each member row needs both a name and an age"
+            : "Finish the family details first"),
+      );
+      return;
+    }
     setBusy(true);
     try {
       await create({
         data: {
-          familyName,
-          me: { name: me.name, age: Number(me.age) },
+          familyName: familyName.trim(),
+          me: { name: me.name.trim(), age: Number(me.age) },
           members: members
             .filter((m) => m.name.trim())
-            .map((m) => ({ name: m.name, role: m.role, age: Number(m.age) })),
+            .map((m) => ({ name: m.name.trim(), role: m.role, age: Number(m.age) })),
         },
       });
       toast.success("Your family vault is ready");
@@ -123,13 +161,18 @@ function CreateForm() {
         <Label htmlFor="fam">Family name</Label>
         <Input
           id="fam"
-          required
           maxLength={60}
+          aria-invalid={!!familyIssue}
+          aria-describedby={familyIssue ? "fam-error" : undefined}
           value={familyName}
           onChange={(e) => setFamilyName(e.target.value)}
           placeholder="The Rivera Family"
-          className="h-11 rounded-xl"
+          className={cn(
+            "h-11 rounded-xl",
+            familyIssue && "border-destructive focus-visible:ring-destructive",
+          )}
         />
+        <FieldError id="fam-error">{familyIssue}</FieldError>
         <p className="text-xs text-muted-foreground">
           What the household is called on the dashboard, receipts and invite codes — for example
           &ldquo;The Rivera Family&rdquo;. Up to 60 characters.
@@ -140,13 +183,18 @@ function CreateForm() {
           <Label htmlFor="me">Your name (Admin)</Label>
           <Input
             id="me"
-            required
             maxLength={40}
+            aria-invalid={!!meNameIssue}
+            aria-describedby={meNameIssue ? "me-error" : undefined}
             value={me.name}
             onChange={(e) => setMe({ ...me, name: e.target.value })}
             placeholder="e.g. Ana Rivera"
-            className="h-11 rounded-xl"
+            className={cn(
+              "h-11 rounded-xl",
+              meNameIssue && "border-destructive focus-visible:ring-destructive",
+            )}
           />
+          <FieldError id="me-error">{meNameIssue}</FieldError>
           <p className="text-xs text-muted-foreground">
             The seat you claim. As Admin you manage members, roles and invites.
           </p>
@@ -155,15 +203,19 @@ function CreateForm() {
           <Label htmlFor="meage">Age</Label>
           <Input
             id="meage"
-            required
-            type="number"
-            min={18}
-            max={120}
+            inputMode="numeric"
+            maxLength={3}
+            aria-invalid={!!meAgeIssue}
+            aria-describedby={meAgeIssue ? "meage-error" : undefined}
             value={me.age}
-            onChange={(e) => setMe({ ...me, age: e.target.value })}
+            onChange={(e) => setMe({ ...me, age: e.target.value.replace(/\D/g, "").slice(0, 3) })}
             placeholder="41"
-            className="h-11 rounded-xl"
+            className={cn(
+              "h-11 rounded-xl tabular",
+              meAgeIssue && "border-destructive focus-visible:ring-destructive",
+            )}
           />
+          <FieldError id="meage-error">{meAgeIssue}</FieldError>
           <p className="text-xs text-muted-foreground">18 or over.</p>
         </div>
       </div>
@@ -206,57 +258,86 @@ function CreateForm() {
           </div>
         </dl>
         <div className="mt-4 space-y-3">
-          {members.map((m, i) => (
-            <div key={i} className="grid grid-cols-[1fr_110px_80px_40px] gap-2">
-              <Input
-                aria-label="Name"
-                placeholder="e.g. Luis Rivera"
-                maxLength={40}
-                value={m.name}
-                onChange={(e) =>
-                  setMembers(members.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))
-                }
-                className="rounded-xl"
-              />
-              <select
-                aria-label="Role"
-                value={m.role}
-                onChange={(e) =>
-                  setMembers(
-                    members.map((x, j) => (j === i ? { ...x, role: e.target.value as Role } : x)),
-                  )
-                }
-                className="rounded-xl border border-input bg-background px-2 text-sm"
-              >
-                {ROLES.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-              <Input
-                aria-label="Age"
-                placeholder="12"
-                type="number"
-                min={0}
-                max={120}
-                value={m.age}
-                onChange={(e) =>
-                  setMembers(members.map((x, j) => (j === i ? { ...x, age: e.target.value } : x)))
-                }
-                className="rounded-xl"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label="Remove member"
-                onClick={() => setMembers(members.filter((_, j) => j !== i))}
-              >
-                <Trash2 />
-              </Button>
-            </div>
-          ))}
+          {members.map((m, i) => {
+            const row = rowIssues[i] ?? { name: null, age: null, incomplete: false };
+            const rowMessage =
+              row.name ??
+              row.age ??
+              (row.incomplete ? (m.name.trim() ? "Add an age" : "Add a name") : null);
+            return (
+              <div key={i} className="grid grid-cols-[1fr_110px_80px_40px] items-start gap-2">
+                <div className="space-y-1">
+                  <Input
+                    aria-label="Name"
+                    placeholder="e.g. Luis Rivera"
+                    maxLength={40}
+                    aria-invalid={!!(row.name || (row.incomplete && !m.name.trim()))}
+                    value={m.name}
+                    onChange={(e) =>
+                      setMembers(
+                        members.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
+                      )
+                    }
+                    className={cn(
+                      "rounded-xl",
+                      (row.name || (row.incomplete && !m.name.trim())) &&
+                        "border-destructive focus-visible:ring-destructive",
+                    )}
+                  />
+                </div>
+                <select
+                  aria-label="Role"
+                  value={m.role}
+                  onChange={(e) =>
+                    setMembers(
+                      members.map((x, j) => (j === i ? { ...x, role: e.target.value as Role } : x)),
+                    )
+                  }
+                  className="h-9 rounded-xl border border-input bg-background px-2 text-sm"
+                >
+                  {ROLES.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="space-y-1">
+                  <Input
+                    aria-label="Age"
+                    placeholder="12"
+                    inputMode="numeric"
+                    maxLength={3}
+                    aria-invalid={!!(row.age || (row.incomplete && !!m.name.trim()))}
+                    value={m.age}
+                    onChange={(e) =>
+                      setMembers(
+                        members.map((x, j) =>
+                          j === i
+                            ? { ...x, age: e.target.value.replace(/\D/g, "").slice(0, 3) }
+                            : x,
+                        ),
+                      )
+                    }
+                    className={cn(
+                      "rounded-xl tabular",
+                      (row.age || (row.incomplete && !!m.name.trim())) &&
+                        "border-destructive focus-visible:ring-destructive",
+                    )}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Remove member"
+                  onClick={() => setMembers(members.filter((_, j) => j !== i))}
+                >
+                  <Trash2 />
+                </Button>
+                <FieldError className="col-span-4">{rowMessage}</FieldError>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -266,7 +347,7 @@ function CreateForm() {
         invite code from the Family page when someone is ready to claim their seat.
       </p>
 
-      <Button type="submit" size="lg" className="w-full" disabled={busy}>
+      <Button type="submit" size="lg" className="w-full" disabled={busy || !canSubmit}>
         {busy && <Loader2 className="animate-spin" />} Create family vault
       </Button>
     </form>
@@ -282,9 +363,14 @@ function JoinForm() {
     null,
   );
   const [busy, setBusy] = useState(false);
+  const codeIssue = code ? inviteCodeError(code) : null;
 
   async function check(e: React.FormEvent) {
     e.preventDefault();
+    if (codeIssue) {
+      toast.error(codeIssue);
+      return;
+    }
     setBusy(true);
     try {
       const res = await preview({ data: { code } });
@@ -333,16 +419,20 @@ function JoinForm() {
         <Label htmlFor="code">Invite code</Label>
         <Input
           id="code"
-          required
-          minLength={4}
           maxLength={40}
+          aria-invalid={!!codeIssue}
+          aria-describedby={codeIssue ? "code-error" : undefined}
           value={code}
-          onChange={(e) => setCode(e.target.value)}
+          onChange={(e) => setCode(normalizeInviteCode(e.target.value))}
           placeholder="KV-XXXXX-XXXXX"
-          className="h-11 rounded-xl font-mono uppercase"
+          className={cn(
+            "h-11 rounded-xl font-mono uppercase",
+            codeIssue && "border-destructive focus-visible:ring-destructive",
+          )}
         />
+        <FieldError id="code-error">{codeIssue}</FieldError>
       </div>
-      <Button type="submit" disabled={busy}>
+      <Button type="submit" disabled={busy || !code || !!codeIssue}>
         {busy && <Loader2 className="animate-spin" />} Check code
       </Button>
     </form>

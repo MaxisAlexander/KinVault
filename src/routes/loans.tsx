@@ -5,11 +5,13 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FieldError } from "@/components/ui/field-error";
 import { Slider } from "@/components/ui/slider";
 import { AppShell, PageHeader, Panel } from "@/components/vault/app-shell";
 import { MemberAvatar } from "@/components/vault/member-avatar";
 import { TrovePanel } from "@/components/vault/trove-panel";
 import { btc, shortDate, usd } from "@/lib/format";
+import { amountError, parseDecimal, sanitizeDecimal } from "@/lib/input-validation";
 import {
   ISSUANCE_FEE,
   LOAN_APR,
@@ -351,10 +353,23 @@ function LoanCard({ loan }: { loan: Loan }) {
   const hf = healthFactor(loan.collateralBtc * price, loan.debt);
   const risk = riskLevel(hf);
   const repaidPct = Math.min(100, Math.max(0, (1 - loan.debt / debtWithFee(loan.principal)) * 100));
+  const repayValue = parseDecimal(amount) ?? 0;
+  const amountIssue = amount.trim()
+    ? amountError(amount, {
+        label: "an amount",
+        decimals: 2,
+        max: loan.debt,
+        maxLabel: `This loan owes ${usd(loan.debt)}`,
+      })
+    : null;
 
   function repay(n: number) {
     if (isLive) {
       toast.info("Repay through Mezo BorrowerOperations in the protocol panel above");
+      return;
+    }
+    if (!(n > 0)) {
+      toast.error("Enter an amount above zero");
       return;
     }
     const r = actions.repayLoan(loan.id, n);
@@ -416,14 +431,27 @@ function LoanCard({ loan }: { loan: Loan }) {
           </p>
         ) : (
           <>
-            <Input
-              inputMode="decimal"
-              placeholder="Amount in MUSD"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="h-10 rounded-xl"
-            />
-            <Button variant="outline" onClick={() => repay(parseFloat(amount) || 0)}>
+            <div className="flex-1 space-y-2">
+              <Input
+                inputMode="decimal"
+                placeholder="Amount in MUSD"
+                maxLength={14}
+                aria-invalid={!!amountIssue}
+                aria-describedby={amountIssue ? `repay-${loan.id}-error` : undefined}
+                value={amount}
+                onChange={(e) => setAmount(sanitizeDecimal(e.target.value, 2))}
+                className={cn(
+                  "h-10 rounded-xl tabular",
+                  amountIssue && "border-destructive focus-visible:ring-destructive",
+                )}
+              />
+              <FieldError id={`repay-${loan.id}-error`}>{amountIssue}</FieldError>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => repay(repayValue)}
+              disabled={!!amountIssue || !(repayValue > 0)}
+            >
               Repay
             </Button>
             <Button onClick={() => repay(loan.debt)}>Repay in full</Button>

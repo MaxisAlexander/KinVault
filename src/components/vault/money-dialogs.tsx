@@ -12,6 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { FieldError } from "@/components/ui/field-error";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -23,6 +24,14 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { btc, usd } from "@/lib/format";
+import {
+  MAX_BTC,
+  MAX_MUSD,
+  amountError,
+  parseDecimal,
+  sanitizeDecimal,
+  textError,
+} from "@/lib/input-validation";
 import { NO_ALLOWANCE, canApprove, routeExpense, spentToday } from "@/lib/vault-logic";
 import {
   CATEGORIES,
@@ -100,7 +109,8 @@ export function MoneyDialog({
   const member = useVault((s) => memberById(s, memberId));
   const vault = useVault((s) => s.vault);
 
-  const n = parseFloat(amount) || 0;
+  const n = parseDecimal(amount) ?? 0;
+  const decimals = asset === "BTC" ? 8 : 2;
   const available =
     mode === "withdraw"
       ? target === "vault"
@@ -111,8 +121,23 @@ export function MoneyDialog({
           ? member.btc
           : member.musd
       : null;
+  const amountIssue =
+    amountError(amount, {
+      label: "an amount",
+      decimals,
+      max: asset === "BTC" ? MAX_BTC : MAX_MUSD,
+    }) ??
+    (mode === "withdraw" && available !== null
+      ? available <= 0
+        ? "Nothing is available to withdraw"
+        : n > available
+          ? `You only have ${asset === "BTC" ? btc(available) : usd(available)}`
+          : null
+      : null);
+  const showIssue = amount.trim().length > 0 && !!amountIssue;
 
   function submit() {
+    if (amountIssue) return;
     const r =
       mode === "deposit"
         ? actions.deposit({ memberId, asset, amount: n, to: target })
@@ -193,21 +218,33 @@ export function MoneyDialog({
                 id="amt"
                 inputMode="decimal"
                 placeholder="0.00"
+                maxLength={16}
+                aria-invalid={showIssue}
+                aria-describedby={showIssue ? "amt-error" : undefined}
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="h-12 rounded-xl pr-16 text-lg font-semibold tabular"
+                onChange={(e) => setAmount(sanitizeDecimal(e.target.value, decimals))}
+                className={cn(
+                  "h-12 rounded-xl pr-16 text-lg font-semibold tabular",
+                  showIssue && "border-destructive focus-visible:ring-destructive",
+                )}
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
                 {asset}
               </span>
             </div>
-            {asset === "BTC" && n > 0 && (
+            <FieldError id="amt-error">{showIssue ? amountIssue : null}</FieldError>
+            {asset === "BTC" && n > 0 && !showIssue && (
               <p className="text-xs text-muted-foreground">≈ {usd(n * price)} at today's price</p>
             )}
           </div>
         </div>
         <DialogFooter>
-          <Button size="lg" className="w-full" onClick={submit}>
+          <Button
+            size="lg"
+            className="w-full"
+            onClick={submit}
+            disabled={!!amountIssue || !(n > 0)}
+          >
             {mode === "deposit" ? "Confirm deposit" : "Confirm withdrawal"}
           </Button>
         </DialogFooter>
@@ -234,7 +271,13 @@ export function ExpenseDialog({ trigger }: { trigger: ReactNode }) {
   // own expense, so they never appear here.
   const candidates = members.filter((m) => canApprove(m.role) && m.id !== actingId);
   const [approverIds, setApproverIds] = useState<string[]>([]);
-  const n = parseFloat(amount) || 0;
+  const n = parseDecimal(amount) ?? 0;
+  const merchantIssue = merchant.trim()
+    ? textError(merchant, { label: "where the money was spent", max: 80 })
+    : null;
+  const amountIssue = amount.trim()
+    ? amountError(amount, { label: "an amount", decimals: 2, max: MAX_MUSD })
+    : null;
   // Preview the same rule the engine will apply, so the dialog only asks for
   // approvers when the expense actually needs them.
   const preview =
@@ -264,6 +307,7 @@ export function ExpenseDialog({ trigger }: { trigger: ReactNode }) {
   }
 
   function submit() {
+    if (merchantIssue || amountIssue) return;
     const r = actions.addExpense({
       category,
       merchant,
@@ -279,7 +323,12 @@ export function ExpenseDialog({ trigger }: { trigger: ReactNode }) {
   }
 
   const canSubmit =
-    n > 0 && !!merchant.trim() && !blocked && (!showApprovers || approverIds.length > 0);
+    n > 0 &&
+    !merchantIssue &&
+    !amountIssue &&
+    !!merchant.trim() &&
+    !blocked &&
+    (!showApprovers || approverIds.length > 0);
 
   return (
     <Dialog
@@ -332,10 +381,17 @@ export function ExpenseDialog({ trigger }: { trigger: ReactNode }) {
             <Input
               id="merchant"
               placeholder="e.g. Whole Foods Market"
+              maxLength={80}
+              aria-invalid={!!merchantIssue}
+              aria-describedby={merchantIssue ? "merchant-error" : undefined}
               value={merchant}
               onChange={(e) => setMerchant(e.target.value)}
-              className="h-11 rounded-xl"
+              className={cn(
+                "h-11 rounded-xl",
+                merchantIssue && "border-destructive focus-visible:ring-destructive",
+              )}
             />
+            <FieldError id="merchant-error">{merchantIssue}</FieldError>
           </div>
           <div className="space-y-2">
             <Label htmlFor="exp-amt">Amount (MUSD)</Label>
@@ -343,11 +399,19 @@ export function ExpenseDialog({ trigger }: { trigger: ReactNode }) {
               id="exp-amt"
               inputMode="decimal"
               placeholder="0.00"
+              maxLength={14}
+              aria-invalid={!!amountIssue}
+              aria-describedby={amountIssue ? "exp-amt-error" : undefined}
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="h-12 rounded-xl text-lg font-semibold tabular"
+              onChange={(e) => setAmount(sanitizeDecimal(e.target.value, 2))}
+              className={cn(
+                "h-12 rounded-xl text-lg font-semibold tabular",
+                amountIssue && "border-destructive focus-visible:ring-destructive",
+              )}
             />
+            <FieldError id="exp-amt-error">{amountIssue}</FieldError>
             {n > 0 &&
+              !amountIssue &&
               (blocked ? (
                 <p className="rounded-lg bg-destructive-soft px-3 py-2 text-xs font-semibold text-destructive">
                   {preview?.route === "blocked" ? preview.reason : "Spending is paused"}
@@ -410,6 +474,7 @@ export function ExpenseDialog({ trigger }: { trigger: ReactNode }) {
             <Textarea
               id="note"
               placeholder="What was it for?"
+              maxLength={500}
               value={note}
               onChange={(e) => setNote(e.target.value)}
               className="rounded-xl"
@@ -432,9 +497,16 @@ export function AutoApproveDialog({ trigger }: { trigger: ReactNode }) {
   const limit = useVault((s) => s.autoApproveLimit ?? 0);
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(String(limit));
-  const n = Math.max(0, parseFloat(value) || 0);
+  const n = parseDecimal(value) ?? 0;
+  const limitIssue = amountError(value, {
+    label: "a limit",
+    decimals: 2,
+    max: MAX_MUSD,
+    allowZero: true,
+  });
 
   function submit() {
+    if (limitIssue) return;
     const r = actions.setAutoApproveLimit(n);
     if (r.ok) {
       toast.success(r.message);
@@ -465,14 +537,23 @@ export function AutoApproveDialog({ trigger }: { trigger: ReactNode }) {
             id="auto-limit"
             inputMode="decimal"
             placeholder="0.00"
+            maxLength={14}
+            aria-invalid={!!limitIssue}
+            aria-describedby={limitIssue ? "auto-limit-error" : undefined}
             value={value}
-            onChange={(e) => setValue(e.target.value)}
-            className="h-12 rounded-xl text-lg font-semibold tabular"
+            onChange={(e) => setValue(sanitizeDecimal(e.target.value, 2))}
+            className={cn(
+              "h-12 rounded-xl text-lg font-semibold tabular",
+              limitIssue && "border-destructive focus-visible:ring-destructive",
+            )}
           />
+          <FieldError id="auto-limit-error">{limitIssue}</FieldError>
           <p className="text-xs text-muted-foreground">
-            {n > 0
-              ? `Expenses under ${usd(n)} auto-approve. At ${usd(n)} or above, the approvers you choose must sign.`
-              : "Every expense needs at least one approver — nothing is auto-approved."}
+            {limitIssue
+              ? "Set a limit between $0 and $1,000,000,000."
+              : n > 0
+                ? `Expenses under ${usd(n)} auto-approve. At ${usd(n)} or above, the approvers you choose must sign.`
+                : "Every expense needs at least one approver — nothing is auto-approved."}
           </p>
         </div>
         <DialogFooter>
@@ -480,7 +561,7 @@ export function AutoApproveDialog({ trigger }: { trigger: ReactNode }) {
             size="lg"
             className="w-full"
             onClick={submit}
-            disabled={!acting || acting.role !== "admin" || !(n >= 0)}
+            disabled={!acting || acting.role !== "admin" || !!limitIssue}
           >
             Save limit
           </Button>

@@ -7,7 +7,7 @@ and a read-only/manual Mezo Testnet checklist that produces explorer evidence.
 
 ```sh
 bun install
-bun run test        # 98 unit/integration tests across 11 files
+bun run test        # 120 unit/integration tests across 12 files
 bunx tsc --noEmit   # strict TypeScript check
 bun run build       # production build
 bun run lint        # ESLint
@@ -27,6 +27,7 @@ The suite never signs a transaction and never depends on the network.
 | `src/lib/wallet-auth.test.ts`         | Wallet signature message and nonce handling                                        |
 | `src/lib/errors.test.ts`              | User-facing error copy (no raw library text leaks to a toast)                      |
 | `src/lib/format.test.ts`              | Money, date and address formatting                                                 |
+| `src/lib/input-validation.test.ts`    | Every form rule: numeric sanitising, amounts, text, email, password, invite codes, addresses, ages and dates |
 | `src/test/app-routing.test.tsx`       | Route rendering and auth-safe redirects                                            |
 
 ### Blockchain coverage
@@ -262,6 +263,29 @@ These must all fail without changing the ledger:
 - a repayment with no MUSD burn log;
 - a borrow below the live `minNetDebt()`;
 - a live deposit/withdraw/loan action sent through `dispatchVaultAction`.
+
+### Form validation
+
+Every input in the app sanitises as you type and validates before submit; the
+submit button stays disabled while a value is invalid and a short inline message
+explains why. Check, in demo mode:
+
+- Type `50jhb` into the auto-approval limit. The field keeps `50`; letters never
+  appear. An empty field shows **Enter a limit**, and `0` is allowed.
+- Type letters, a second dot, or more than 2 decimals into any MUSD amount
+  (deposit, withdraw, expense, lockbox goal, trove borrow/repay). The field keeps
+  a valid number and the button disables with an inline message when the value is
+  over the available balance.
+- Enter a BTC amount with more than 8 decimals: extra digits are dropped.
+- Enter a treasury, merchant or recipient address that is not `0x` + 40 hex
+  characters: an inline error appears and the button disables.
+- Create a lockbox with an unlock date in the past: **Pick a future date**.
+- Add a family member with a fractional or 121-year-old age: **Use whole years
+  only** / **Must be 120 or under**.
+- Sign up with `dad@` or a 5-character password: inline email/password errors,
+  and no request is sent.
+- Paste an invite code in lower case with spaces: it is upper-cased and cleaned
+  to `KV-XXXXX-XXXXX` before checking.
 
 ## 4. Demo mode
 

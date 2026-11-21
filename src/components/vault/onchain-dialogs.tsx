@@ -23,6 +23,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { FieldError } from "@/components/ui/field-error";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -46,6 +47,16 @@ import {
   setTreasuryAddress,
 } from "@/lib/family.functions";
 import { toastError } from "@/lib/errors";
+import { btc, musd } from "@/lib/format";
+import {
+  MAX_BTC,
+  MAX_MUSD,
+  addressError,
+  amountError,
+  parseDecimal,
+  sanitizeDecimal,
+} from "@/lib/input-validation";
+import { cn } from "@/lib/utils";
 import { actions, memberById, useVault, type Expense } from "@/lib/vault-store";
 import { connectWallet, disconnectWallet, getWalletState, useWallet } from "@/lib/wallet";
 
@@ -99,6 +110,22 @@ export function FundVaultDialog({
     mySeat.walletAddress.toLowerCase() === wallet.address.toLowerCase(),
   );
   const treasury = state.treasuryAddress ?? treasuryInput.trim();
+  const available = asset === "MUSD" ? wallet.balanceMusd : wallet.balanceBtc;
+  const decimals = asset === "MUSD" ? 2 : 8;
+  const amountIssue = amountError(amount, {
+    label: "an amount",
+    decimals,
+    max: available ?? (asset === "MUSD" ? MAX_MUSD : MAX_BTC),
+    ...(available === null
+      ? {}
+      : { maxLabel: `Your wallet holds ${asset === "MUSD" ? musd(available) : btc(available)}` }),
+  });
+  const treasuryIssue = state.treasuryAddress
+    ? null
+    : treasuryInput.trim()
+      ? addressError(treasuryInput)
+      : null;
+  const showAmountIssue = amount.trim().length > 0 && !!amountIssue;
   const isLive = state.mode === "live";
   // A deposit only moves value if the sender is a different address from the
   // treasury. Sending from the treasury wallet to itself is a no-op on chain, so
@@ -118,6 +145,14 @@ export function FundVaultDialog({
     }
     if (!treasury) {
       toast.error("Add the family treasury address first");
+      return;
+    }
+    if (treasuryIssue) {
+      toast.error(treasuryIssue);
+      return;
+    }
+    if (amountIssue) {
+      toast.error(amountIssue);
       return;
     }
     if (sendingFromTreasury) {
@@ -155,8 +190,6 @@ export function FundVaultDialog({
       setBusy(false);
     }
   }
-
-  const available = asset === "MUSD" ? wallet.balanceMusd : wallet.balanceBtc;
 
   /** Designates the connected wallet as the treasury, without moving funds. */
   async function saveWalletAsTreasury() {
@@ -244,10 +277,17 @@ export function FundVaultDialog({
               <Input
                 id="treasury-address"
                 value={treasuryInput}
+                maxLength={42}
+                aria-invalid={!!treasuryIssue}
+                aria-describedby={treasuryIssue ? "treasury-address-error" : undefined}
                 onChange={(e) => setTreasuryInput(e.target.value)}
                 placeholder="0x… treasury wallet address"
-                className="h-11 rounded-xl font-mono text-xs"
+                className={cn(
+                  "h-11 rounded-xl font-mono text-xs",
+                  treasuryIssue && "border-destructive focus-visible:ring-destructive",
+                )}
               />
+              <FieldError id="treasury-address-error">{treasuryIssue}</FieldError>
               <p className="text-xs text-muted-foreground">
                 Only an admin can set this on the first deposit. It must be a different wallet from
                 the one you are sending from — use a second test wallet so the transfer actually
@@ -302,10 +342,17 @@ export function FundVaultDialog({
               id="fund-amount"
               inputMode="decimal"
               placeholder="0.00"
+              maxLength={20}
+              aria-invalid={showAmountIssue}
+              aria-describedby={showAmountIssue ? "fund-amount-error" : undefined}
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="h-12 rounded-xl text-lg font-semibold tabular"
+              onChange={(e) => setAmount(sanitizeDecimal(e.target.value, decimals))}
+              className={cn(
+                "h-12 rounded-xl text-lg font-semibold tabular",
+                showAmountIssue && "border-destructive focus-visible:ring-destructive",
+              )}
             />
+            <FieldError id="fund-amount-error">{showAmountIssue ? amountIssue : null}</FieldError>
             {!wallet.address && (
               <p className="flex items-center gap-1 text-xs text-warning">
                 <Wallet className="h-3.5 w-3.5" /> Connect your wallet to continue.
@@ -318,7 +365,14 @@ export function FundVaultDialog({
             size="lg"
             className="w-full"
             onClick={() => void submit()}
-            disabled={busy || !amount || !treasury || sendingFromTreasury}
+            disabled={
+              busy ||
+              !amount ||
+              !!amountIssue ||
+              !!treasuryIssue ||
+              !treasury ||
+              sendingFromTreasury
+            }
           >
             {busy ? <Loader2 className="animate-spin" /> : <ArrowDownToLine />}
             Fund {asset} on Mezo Testnet
@@ -352,11 +406,14 @@ export function PayExpenseButton({ expense }: { expense: Expense }) {
     isTreasury &&
     !expense.onchain &&
     expense.status === "approved";
+  const merchantIssue = merchant.trim()
+    ? addressError(merchant)
+    : "Enter the merchant's wallet address";
 
   if (!canPay) return null;
 
   async function pay() {
-    if (!state.treasuryAddress) return;
+    if (!state.treasuryAddress || merchantIssue) return;
     setBusy(true);
     try {
       const provider = getInjectedProvider();
@@ -413,9 +470,16 @@ export function PayExpenseButton({ expense }: { expense: Expense }) {
             <Input
               id="merchant-address"
               value={merchant}
+              maxLength={42}
+              aria-invalid={!!merchantIssue}
+              aria-describedby={merchantIssue ? "merchant-address-error" : undefined}
               onChange={(e) => setMerchant(e.target.value)}
-              className="h-11 rounded-xl font-mono text-xs"
+              className={cn(
+                "h-11 rounded-xl font-mono text-xs",
+                merchantIssue && "border-destructive focus-visible:ring-destructive",
+              )}
             />
+            <FieldError id="merchant-address-error">{merchantIssue}</FieldError>
             <p className="text-xs text-muted-foreground">
               Default is a burn address for a safe testnet demo. Replace it with the merchant or a
               second test wallet.
@@ -423,7 +487,12 @@ export function PayExpenseButton({ expense }: { expense: Expense }) {
           </div>
         </div>
         <DialogFooter>
-          <Button size="lg" className="w-full" onClick={() => void pay()} disabled={busy}>
+          <Button
+            size="lg"
+            className="w-full"
+            onClick={() => void pay()}
+            disabled={busy || !!merchantIssue}
+          >
             {busy ? <Loader2 className="animate-spin" /> : <Wallet />}
             Sign MUSD payment
           </Button>
@@ -459,9 +528,26 @@ export function WithdrawDialog({ trigger }: { trigger: ReactNode }) {
   const recipient = recipients.find((s) => s.id === toMemberId) ?? recipients[0];
   const available =
     asset === "MUSD" ? state.vault.musd : Math.max(0, state.vault.btc - state.vault.btcLocked);
-  const n = parseFloat(amount) || 0;
+  const n = parseDecimal(amount) ?? 0;
+  const decimals = asset === "MUSD" ? 2 : 8;
+  const amountIssue =
+    amountError(amount, {
+      label: "an amount",
+      decimals,
+      max: asset === "MUSD" ? MAX_MUSD : MAX_BTC,
+    }) ??
+    (available <= 0
+      ? "Nothing is available to withdraw"
+      : n > available
+        ? `The treasury holds ${asset === "MUSD" ? musd(available) : btc(available)}`
+        : null);
+  const showAmountIssue = amount.trim().length > 0 && !!amountIssue;
 
   async function submit() {
+    if (amountIssue) {
+      toast.error(amountIssue);
+      return;
+    }
     if (!treasury) {
       toast.error("This family has no treasury yet");
       return;
@@ -596,10 +682,19 @@ export function WithdrawDialog({ trigger }: { trigger: ReactNode }) {
               id="withdraw-amount"
               inputMode="decimal"
               placeholder="0.00"
+              maxLength={20}
+              aria-invalid={showAmountIssue}
+              aria-describedby={showAmountIssue ? "withdraw-amount-error" : undefined}
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="h-12 rounded-xl text-lg font-semibold tabular"
+              onChange={(e) => setAmount(sanitizeDecimal(e.target.value, decimals))}
+              className={cn(
+                "h-12 rounded-xl text-lg font-semibold tabular",
+                showAmountIssue && "border-destructive focus-visible:ring-destructive",
+              )}
             />
+            <FieldError id="withdraw-amount-error">
+              {showAmountIssue ? amountIssue : null}
+            </FieldError>
           </div>
 
           {!isTreasury && (
@@ -614,7 +709,7 @@ export function WithdrawDialog({ trigger }: { trigger: ReactNode }) {
             size="lg"
             className="w-full"
             onClick={() => void submit()}
-            disabled={busy || !amount || !recipient || !isTreasury}
+            disabled={busy || !!amountIssue || !amount || !recipient || !isTreasury}
           >
             {busy ? <Loader2 className="animate-spin" /> : <ArrowUpRight />}
             Withdraw {asset} on Mezo Testnet

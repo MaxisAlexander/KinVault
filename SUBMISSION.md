@@ -79,7 +79,7 @@ mezo live check: ok
   credit the ledger.
 - Fixed-window rate limiting on invite preview, join, create-family and vault
   actions (`src/lib/rate-limit.server.ts`).
-- 98 automated tests across 11 files, including a suite that replays real Mezo
+- 120 automated tests across 12 files, including a suite that replays real Mezo
   Testnet receipts, plus a read-only Mezo RPC smoke test.
 - Live mode never applies an optimistic balance; it waits for the verified
   server ledger.
@@ -128,7 +128,7 @@ fixed rather than argued with:
 | Tests never touched a real chain | `src/lib/chain/verify.fixtures.test.ts` replays receipts recorded from chain 31611 |
 | No business model | `README.md` → Business model |
 | The EOA treasury was undisclosed | `README.md` → Known limitations, and this file |
-| Stale test counts (58/4) | 98 tests across 11 files, everywhere |
+| Stale test counts (58/4) | 120 tests across 12 files, everywhere |
 | No abuse controls | `src/lib/rate-limit.server.ts` on invite preview, join, create-family and vault actions |
 | Signed-out visitors saw app navigation | The header and mobile nav now render only when signed in |
 | MEZO was display-only | Treasury must hold ≥ 1 MEZO to borrow through KinVault, enforced pre-sign (`transactions.ts`) and server-side (`confirmTroveOpen`), shown in the trove panel |
@@ -138,6 +138,7 @@ fixed rather than argued with:
 | Under-$100 expenses auto-approved without a family signature | Instant approval removed: the requester names the approvers (e.g. Dad), every chosen approver must sign, and a sub-$100 expense stays pending until they do; legacy rows still need two distinct approvals |
 | Families wanted a say in when a signature is overkill | Admin-only auto-approval limit (default `$0` = off). Amounts strictly under it, and inside the member's allowance, pay with no signature; at or above it the chosen approvers sign. Enforced in `routeExpense`/`addExpense`, not just the UI |
 | Generated labels repeated words ("The Perera Family Family Vault", "created the The … family vault") | The dashboard eyebrow uses `familyLabel()`, generated vault-created text drops the duplicated article and suffix, and the five existing testnet ledgers were rewritten in place with their hashes re-sealed so the receipt chain still verifies |
+| The auto-approval limit accepted `50jhb`, and other fields silently coerced bad input | `src/lib/input-validation.ts` holds the shared rules: numeric fields drop letters and extra decimals as you type, amounts are checked against the available balance, and text, email, password, invite code, wallet address, age and date fields each get a short inline error. Submit stays disabled while a value is invalid; 12 tests in `src/lib/input-validation.test.ts` |
 | README carried screenshots and a demo-video section | Removed; README now leads with on-chain claims, evidence and current status |
 | Wallet disconnected on every page refresh | The address is remembered and restored silently through `eth_accounts` (no popup, no signature); 4 tests in `src/lib/wallet.test.ts` |
 | Header BTC price could show the demo constant in live mode | Header reads Mezo `PriceFeed.fetchPrice()` with a live/stale dot and tooltip; the vault price is only a fallback while the RPC loads |
@@ -207,7 +208,7 @@ Screenshots used in the deck and the submission form:
 - [x] Confirm `.env` is not committed and `.env.example` is.
 - [x] Apply all four Drizzle migrations to the production Supabase project.
 - [x] Set `SUPABASE_SERVICE_ROLE_KEY` in the deployment environment.
-- [x] Run `bun run test`, `bunx tsc --noEmit` and `bun run build` — 98/98 tests
+- [x] Run `bun run test`, `bunx tsc --noEmit` and `bun run build` — 120/120 tests
       pass, TypeScript clean, production build succeeds.
 - [x] Run `bun run test:live` and save the output — see below.
 - [x] Record the 2:19 narrated walkthrough — `docs/video/kinvault-demo.mp4`.

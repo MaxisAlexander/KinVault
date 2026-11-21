@@ -5,9 +5,12 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FieldError } from "@/components/ui/field-error";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/vault/logo";
 import { toastError } from "@/lib/errors";
+import { passwordError } from "@/lib/input-validation";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/reset-password")({
@@ -32,6 +35,7 @@ function ResetPassword() {
   const [ready, setReady] = useState(false);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const passwordIssue = password ? passwordError(password) : null;
 
   useEffect(() => {
     const isRecovery = window.location.hash.includes("type=recovery");
@@ -46,8 +50,8 @@ function ResetPassword() {
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (password.length < 8) {
-      toast.error("Use at least 8 characters");
+    if (passwordIssue) {
+      toast.error(passwordIssue);
       return;
     }
     setBusy(true);
@@ -76,12 +80,27 @@ function ResetPassword() {
                 id="pw"
                 type="password"
                 autoComplete="new-password"
+                maxLength={72}
+                aria-invalid={!!passwordIssue}
+                aria-describedby={passwordIssue ? "pw-error" : undefined}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="h-11 rounded-xl"
+                className={cn(
+                  "h-11 rounded-xl",
+                  passwordIssue && "border-destructive focus-visible:ring-destructive",
+                )}
               />
+              <FieldError id="pw-error">{passwordIssue}</FieldError>
+              {!passwordIssue && (
+                <p className="text-xs text-muted-foreground">At least 8 characters.</p>
+              )}
             </div>
-            <Button type="submit" size="lg" className="w-full" disabled={busy}>
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+              disabled={busy || !password || !!passwordIssue}
+            >
               {busy && <Loader2 className="animate-spin" />} Save password
             </Button>
           </form>

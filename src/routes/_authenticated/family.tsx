@@ -7,10 +7,12 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FieldError } from "@/components/ui/field-error";
 import { AppShell } from "@/components/vault/app-shell";
 import { vaultQueryKey } from "@/components/vault/vault-session";
 import { toastError } from "@/lib/errors";
 import { addMember, regenerateInvite, removeMember } from "@/lib/family.functions";
+import { ageError, textError } from "@/lib/input-validation";
 import { useVault } from "@/lib/vault-store";
 
 export const Route = createFileRoute("/_authenticated/family")({
@@ -49,6 +51,9 @@ function FamilyPage() {
   const me = seats.find((s) => s.isMe);
   const isAdmin = me?.role === "admin";
   const refresh = () => qc.invalidateQueries({ queryKey: vaultQueryKey });
+  const nameIssue = draft.name.trim() ? textError(draft.name, { label: "a name", max: 40 }) : null;
+  const ageIssue = draft.age ? ageError(draft.age, { min: 0, max: 120 }) : null;
+  const canAdd = !!draft.name.trim() && !!draft.age && !nameIssue && !ageIssue;
 
   async function run(fn: () => Promise<unknown>, ok: string) {
     setBusy(true);
@@ -159,47 +164,65 @@ function FamilyPage() {
 
       {isAdmin && seats.length < 6 && (
         <form
-          className="mt-6 grid gap-2 rounded-2xl border border-border bg-card p-4 sm:grid-cols-[1fr_120px_90px_auto]"
+          className="mt-6 rounded-2xl border border-border bg-card p-4"
           onSubmit={(e) => {
             e.preventDefault();
+            if (!canAdd) {
+              toast.error(nameIssue ?? ageIssue ?? "Add a name and age first");
+              return;
+            }
             void run(
-              () => add({ data: { name: draft.name, role: draft.role, age: Number(draft.age) } }),
-              `${draft.name} added`,
+              () =>
+                add({
+                  data: { name: draft.name.trim(), role: draft.role, age: Number(draft.age) },
+                }),
+              `${draft.name.trim()} added`,
             ).then(() => setDraft({ name: "", role: "kid", age: "" }));
           }}
         >
-          <Input
-            required
-            placeholder="Name"
-            maxLength={40}
-            value={draft.name}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            className="rounded-xl"
-          />
-          <select
-            aria-label="Role"
-            value={draft.role}
-            onChange={(e) => setDraft({ ...draft, role: e.target.value as Role })}
-            className="rounded-xl border border-input bg-background px-2 text-sm"
-          >
-            <option value="spouse">Spouse</option>
-            <option value="teen">Teen</option>
-            <option value="kid">Kid</option>
-            <option value="admin">Admin</option>
-          </select>
-          <Input
-            required
-            type="number"
-            min={0}
-            max={120}
-            placeholder="Age"
-            value={draft.age}
-            onChange={(e) => setDraft({ ...draft, age: e.target.value })}
-            className="rounded-xl"
-          />
-          <Button type="submit" disabled={busy}>
-            {busy ? <Loader2 className="animate-spin" /> : <Plus />} Add member
-          </Button>
+          <div className="grid gap-2 sm:grid-cols-[1fr_120px_90px_auto] sm:items-start">
+            <div className="space-y-1">
+              <Input
+                placeholder="Name"
+                maxLength={40}
+                aria-invalid={!!nameIssue}
+                aria-describedby={nameIssue ? "member-name-error" : undefined}
+                value={draft.name}
+                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                className="rounded-xl"
+              />
+              <FieldError id="member-name-error">{nameIssue}</FieldError>
+            </div>
+            <select
+              aria-label="Role"
+              value={draft.role}
+              onChange={(e) => setDraft({ ...draft, role: e.target.value as Role })}
+              className="h-9 rounded-xl border border-input bg-background px-2 text-sm"
+            >
+              <option value="spouse">Spouse</option>
+              <option value="teen">Teen</option>
+              <option value="kid">Kid</option>
+              <option value="admin">Admin</option>
+            </select>
+            <div className="space-y-1">
+              <Input
+                inputMode="numeric"
+                placeholder="Age"
+                maxLength={3}
+                aria-invalid={!!ageIssue}
+                aria-describedby={ageIssue ? "member-age-error" : undefined}
+                value={draft.age}
+                onChange={(e) =>
+                  setDraft({ ...draft, age: e.target.value.replace(/\D/g, "").slice(0, 3) })
+                }
+                className="rounded-xl tabular"
+              />
+              <FieldError id="member-age-error">{ageIssue}</FieldError>
+            </div>
+            <Button type="submit" disabled={busy || !canAdd}>
+              {busy ? <Loader2 className="animate-spin" /> : <Plus />} Add member
+            </Button>
+          </div>
         </form>
       )}
     </AppShell>

@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { FieldError } from "@/components/ui/field-error";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -26,6 +27,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { AppShell, PageHeader, Panel } from "@/components/vault/app-shell";
 import { MemberAvatar } from "@/components/vault/member-avatar";
 import { shortDate, usd } from "@/lib/format";
+import {
+  MAX_MUSD,
+  amountError,
+  dateError,
+  parseDecimal,
+  sanitizeDecimal,
+  textError,
+} from "@/lib/input-validation";
 import { REQUIRED_GUARDIAN_SIGNATURES, daysUntil, isMatured } from "@/lib/vault-logic";
 import { actions, memberById, useVault, type Lockbox } from "@/lib/vault-store";
 import { cn } from "@/lib/utils";
@@ -112,9 +121,23 @@ function LockboxCard({ lb }: { lb: Lockbox }) {
   const released = lb.status === "released";
   const isGuardian = lb.guardians.includes(acting.id);
   const canRead = released || isGuardian;
+  const isLive = state.mode === "live";
+  const available = isLive ? state.vault.musd : acting.musd;
+  const amountIssue = amount.trim()
+    ? (amountError(amount, {
+        label: "an amount",
+        decimals: 2,
+        max: available,
+        maxLabel: `Only ${usd(available)} is available to add`,
+      }) ?? (available <= 0 ? "There is nothing available to add" : null))
+    : null;
 
   function contribute() {
-    const r = actions.contributeLockbox(lb.id, parseFloat(amount) || 0);
+    if (amountIssue) {
+      toast.error(amountIssue);
+      return;
+    }
+    const r = actions.contributeLockbox(lb.id, parseDecimal(amount) ?? 0);
     if (r.ok) {
       toast.success(r.message);
       setAmount("");
@@ -262,19 +285,26 @@ function LockboxCard({ lb }: { lb: Lockbox }) {
       <div className="mt-auto space-y-2 pt-6">
         {!released && (
           <>
-            <div className="flex gap-2">
-              <Input
-                inputMode="decimal"
-                placeholder={
-                  state.mode === "live"
-                    ? "Add from the treasury"
-                    : `Add from ${acting.name}'s account`
-                }
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="h-10 rounded-xl"
-              />
-              <Button variant="mint" onClick={contribute}>
+            <div className="flex items-start gap-2">
+              <div className="flex-1 space-y-2">
+                <Input
+                  inputMode="decimal"
+                  placeholder={
+                    isLive ? "Add from the treasury" : `Add from ${acting.name}'s account`
+                  }
+                  maxLength={14}
+                  aria-invalid={!!amountIssue}
+                  aria-describedby={amountIssue ? `lb-${lb.id}-amount-error` : undefined}
+                  value={amount}
+                  onChange={(e) => setAmount(sanitizeDecimal(e.target.value, 2))}
+                  className={cn(
+                    "h-10 rounded-xl tabular",
+                    amountIssue && "border-destructive focus-visible:ring-destructive",
+                  )}
+                />
+                <FieldError id={`lb-${lb.id}-amount-error`}>{amountIssue}</FieldError>
+              </div>
+              <Button variant="mint" onClick={contribute} disabled={!!amountIssue || !amount}>
                 <Gift /> Add
               </Button>
             </div>
@@ -307,6 +337,7 @@ function LockboxCard({ lb }: { lb: Lockbox }) {
 
 function CreateLockboxDialog() {
   const members = useVault((s) => s.members);
+  const todayIso = useVault((s) => s.today).slice(0, 10);
   const kids = members.filter((m) => m.role === "teen" || m.role === "kid");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
@@ -321,8 +352,48 @@ function CreateLockboxDialog() {
   const up = (k: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm({ ...form, [k]: e.target.value });
 
+  const nameIssue = form.name.trim() ? textError(form.name, { label: "a name", max: 80 }) : null;
+  const goalIssue = form.goal.trim()
+    ? amountError(form.goal, { label: "a goal", decimals: 2, max: MAX_MUSD })
+    : null;
+  const dateIssue = form.unlockDate ? dateError(form.unlockDate, { min: todayIso }) : null;
+  const milestoneIssue = form.milestone.trim()
+    ? textError(form.milestone, { label: "a milestone", max: 80 })
+    : null;
+  const titleIssue = form.letterTitle.trim()
+    ? textError(form.letterTitle, { label: "a letter title", max: 120 })
+    : null;
+  const bodyIssue = textError(form.letterBody, { label: "a letter", max: 4000, required: false });
+  const missing =
+    !form.name.trim() ||
+    !form.goal.trim() ||
+    !form.unlockDate ||
+    !form.milestone.trim() ||
+    !form.letterTitle.trim() ||
+    !form.beneficiaryId;
+  const invalid =
+    missing ||
+    !!nameIssue ||
+    !!goalIssue ||
+    !!dateIssue ||
+    !!milestoneIssue ||
+    !!titleIssue ||
+    !!bodyIssue;
+
   function submit() {
-    const r = actions.createLockbox({ ...form, goal: parseFloat(form.goal) || 0 });
+    if (invalid) {
+      toast.error(
+        nameIssue ??
+          goalIssue ??
+          dateIssue ??
+          milestoneIssue ??
+          titleIssue ??
+          bodyIssue ??
+          "Fill in the lockbox details",
+      );
+      return;
+    }
+    const r = actions.createLockbox({ ...form, goal: parseDecimal(form.goal) ?? 0 });
     if (r.ok) {
       toast.success(r.message);
       setOpen(false);
@@ -358,10 +429,17 @@ function CreateLockboxDialog() {
             <Input
               id="lb-name"
               placeholder="e.g. Sam's Gap Year"
+              maxLength={80}
+              aria-invalid={!!nameIssue}
+              aria-describedby={nameIssue ? "lb-name-error" : undefined}
               value={form.name}
               onChange={up("name")}
-              className="h-11 rounded-xl"
+              className={cn(
+                "h-11 rounded-xl",
+                nameIssue && "border-destructive focus-visible:ring-destructive",
+              )}
             />
+            <FieldError id="lb-name-error">{nameIssue}</FieldError>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
@@ -388,10 +466,17 @@ function CreateLockboxDialog() {
                 id="lb-goal"
                 inputMode="decimal"
                 placeholder="10000"
+                maxLength={14}
+                aria-invalid={!!goalIssue}
+                aria-describedby={goalIssue ? "lb-goal-error" : undefined}
                 value={form.goal}
-                onChange={up("goal")}
-                className="h-11 rounded-xl"
+                onChange={(e) => setForm({ ...form, goal: sanitizeDecimal(e.target.value, 2) })}
+                className={cn(
+                  "h-11 rounded-xl tabular",
+                  goalIssue && "border-destructive focus-visible:ring-destructive",
+                )}
               />
+              <FieldError id="lb-goal-error">{goalIssue}</FieldError>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -400,20 +485,34 @@ function CreateLockboxDialog() {
               <Input
                 id="lb-date"
                 type="date"
+                min={todayIso}
+                aria-invalid={!!dateIssue}
+                aria-describedby={dateIssue ? "lb-date-error" : undefined}
                 value={form.unlockDate}
                 onChange={up("unlockDate")}
-                className="h-11 rounded-xl"
+                className={cn(
+                  "h-11 rounded-xl",
+                  dateIssue && "border-destructive focus-visible:ring-destructive",
+                )}
               />
+              <FieldError id="lb-date-error">{dateIssue}</FieldError>
             </div>
             <div className="space-y-2">
               <Label htmlFor="lb-ms">Milestone</Label>
               <Input
                 id="lb-ms"
                 placeholder="21st birthday"
+                maxLength={80}
+                aria-invalid={!!milestoneIssue}
+                aria-describedby={milestoneIssue ? "lb-ms-error" : undefined}
                 value={form.milestone}
                 onChange={up("milestone")}
-                className="h-11 rounded-xl"
+                className={cn(
+                  "h-11 rounded-xl",
+                  milestoneIssue && "border-destructive focus-visible:ring-destructive",
+                )}
               />
+              <FieldError id="lb-ms-error">{milestoneIssue}</FieldError>
             </div>
           </div>
           <div className="space-y-2">
@@ -421,10 +520,17 @@ function CreateLockboxDialog() {
             <Input
               id="lb-lt"
               placeholder="Open this when…"
+              maxLength={120}
+              aria-invalid={!!titleIssue}
+              aria-describedby={titleIssue ? "lb-lt-error" : undefined}
               value={form.letterTitle}
               onChange={up("letterTitle")}
-              className="h-11 rounded-xl"
+              className={cn(
+                "h-11 rounded-xl",
+                titleIssue && "border-destructive focus-visible:ring-destructive",
+              )}
             />
+            <FieldError id="lb-lt-error">{titleIssue}</FieldError>
           </div>
           <div className="space-y-2">
             <Label htmlFor="lb-lb">Your letter</Label>
@@ -432,14 +538,21 @@ function CreateLockboxDialog() {
               id="lb-lb"
               rows={4}
               placeholder="Write something they'll read on the big day…"
+              maxLength={4000}
+              aria-invalid={!!bodyIssue}
+              aria-describedby={bodyIssue ? "lb-lb-error" : undefined}
               value={form.letterBody}
               onChange={up("letterBody")}
-              className="rounded-xl"
+              className={cn(
+                "rounded-xl",
+                bodyIssue && "border-destructive focus-visible:ring-destructive",
+              )}
             />
+            <FieldError id="lb-lb-error">{bodyIssue}</FieldError>
           </div>
         </div>
         <DialogFooter>
-          <Button size="lg" className="w-full" onClick={submit}>
+          <Button size="lg" className="w-full" onClick={submit} disabled={invalid}>
             <Lock /> Seal lockbox
           </Button>
         </DialogFooter>
